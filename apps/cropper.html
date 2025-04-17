@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ランダム画像クロッパー | Random Image Cropper</title>
+    <!-- Import Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import Font Awesome for Icons (Optional, but adds polish) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom CSS for fine-tuning or complex styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc; /* Tailwind gray-50 */
+        }
+
+        /* Style for the results grid items */
+        .crop-item {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            overflow: hidden; /* Ensure rotated image doesn't overflow its container */
+        }
+        .crop-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Tailwind shadow-lg */
+        }
+
+        /* Custom spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Ensure canvas respects container */
+        canvas {
+             max-width: 100%;
+             height: auto;
+        }
+
+        /* Style file input */
+        input[type="file"]::file-selector-button {
+            margin-right: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0; /* Tailwind gray-300 */
+            border-radius: 0.375rem; /* Tailwind rounded-md */
+            background-color: #ffffff; /* Tailwind white */
+            color: #374151; /* Tailwind gray-700 */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        input[type="file"]::file-selector-button:hover {
+             background-color: #f9fafb; /* Tailwind gray-50 */
+        }
+
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-6 md:p-10 bg-white rounded-lg shadow-xl my-10 max-w-6xl">
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+                <i class="fas fa-crop-alt mr-2 text-blue-600"></i>ランダム画像クロッパー
+            </h1>
+            <p class="text-gray-600">アップロードした画像をランダムな正方形で切り抜きます。</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <!-- Controls Section -->
+            <div class="md:col-span-1 space-y-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">設定パラメータ</h2>
+
+                <div>
+                    <label for="imageUpload" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-image mr-1"></i>画像ファイルを選択
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" class="w-full text-sm text-gray-500 file:text-sm file:font-semibold">
+                    <p class="text-xs text-gray-500 mt-1">画像を選択してください。</p>
+                </div>
+
+                <div>
+                    <label for="numCrops" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-hashtag mr-1"></i>クロップ数 (N)
+                    </label>
+                    <input type="number" id="numCrops" value="10" min="1" max="100" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                       <i class="fas fa-ruler-combined mr-1"></i> クロップサイズ (ピクセル)
+                    </label>
+                    <div class="flex space-x-2">
+                        <input type="number" id="minSize" value="50" min="10" placeholder="最小" class="w-1/2 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <input type="number" id="maxSize" value="200" min="10" placeholder="最大" class="w-1/2 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                     <p class="text-xs text-gray-500 mt-1">最小サイズと最大サイズを指定します。</p>
+                </div>
+
+                <div>
+                    <label for="angleRange" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fas fa-sync-alt mr-1"></i>回転角の範囲 (度)
+                    </label>
+                     <input type="number" id="angleRange" value="45" min="0" max="180" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                     <p class="text-xs text-gray-500 mt-1">0からこの値までの絶対角度でランダムに回転します (例: 45なら -45° ~ +45°)。</p>
+                </div>
+
+                <button id="cropButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                    <i class="fas fa-magic"></i>
+                    <span>クロップ開始</span>
+                </button>
+                 <div id="loadingIndicator" class="hidden text-center mt-4 space-x-2">
+                     <div class="spinner inline-block"></div>
+                     <span class="text-gray-600 align-middle">処理中...</span>
+                 </div>
+                 <div id="errorMessage" class="hidden text-red-600 text-sm mt-2 text-center"></div>
+            </div>
+
+            <!-- Preview and Output Section -->
+            <div class="md:col-span-2">
+                <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">プレビュー & 結果</h2>
+
+                <div id="previewArea" class="mb-6 p-4 border border-dashed border-gray-300 rounded-lg min-h-[200px] flex items-center justify-center bg-gray-50">
+                    <img id="previewImage" src="#" alt="画像プレビュー" class="hidden max-w-full max-h-64 object-contain rounded">
+                    <span id="previewPlaceholder" class="text-gray-400">画像がアップロードされるとここにプレビューが表示されます</span>
+                </div>
+
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">クロップ結果:</h3>
+                <div id="outputContainer" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 min-h-[150px]">
+                    <!-- Cropped images will be appended here -->
+                     <p id="outputPlaceholder" class="col-span-full text-gray-400 text-center self-center">クロップされた画像はここに表示されます。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const previewImage = document.getElementById('previewImage');
+        const previewPlaceholder = document.getElementById('previewPlaceholder');
+        const previewArea = document.getElementById('previewArea');
+        const numCropsInput = document.getElementById('numCrops');
+        const minSizeInput = document.getElementById('minSize');
+        const maxSizeInput = document.getElementById('maxSize');
+        const angleRangeInput = document.getElementById('angleRange');
+        const cropButton = document.getElementById('cropButton');
+        const outputContainer = document.getElementById('outputContainer');
+        const outputPlaceholder = document.getElementById('outputPlaceholder');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let originalImage = null;
+        let originalImageWidth = 0;
+        let originalImageHeight = 0;
+
+        // --- Event Listeners ---
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    originalImage = new Image();
+                    originalImage.onload = () => {
+                        originalImageWidth = originalImage.width;
+                        originalImageHeight = originalImage.height;
+                        previewImage.src = e.target.result;
+                        previewImage.classList.remove('hidden');
+                        previewPlaceholder.classList.add('hidden');
+                        errorMessage.classList.add('hidden'); // Hide previous errors
+                        // Dynamically adjust max crop size based on image dimensions
+                        const smallerDimension = Math.min(originalImageWidth, originalImageHeight);
+                        maxSizeInput.max = smallerDimension;
+                        if (parseInt(maxSizeInput.value) > smallerDimension) {
+                            maxSizeInput.value = smallerDimension;
+                        }
+                         if (parseInt(minSizeInput.value) > smallerDimension) {
+                            minSizeInput.value = Math.max(10, Math.floor(smallerDimension / 2)); // Adjust min too if needed
+                        }
+                        console.log(`Image loaded: ${originalImageWidth}x${originalImageHeight}`);
+                    };
+                    originalImage.onerror = () => {
+                        showError("画像の読み込み中にエラーが発生しました。");
+                        resetPreview();
+                    };
+                    originalImage.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            } else {
+                 showError("有効な画像ファイルを選択してください。");
+                resetPreview();
+            }
+        });
+
+        cropButton.addEventListener('click', () => {
+            if (!originalImage) {
+                showError("最初に画像をアップロードしてください。");
+                return;
+            }
+
+            // Validate parameters
+            const N = parseInt(numCropsInput.value);
+            let minSize = parseInt(minSizeInput.value);
+            let maxSize = parseInt(maxSizeInput.value);
+            const angleRange = parseFloat(angleRangeInput.value);
+
+            if (isNaN(N) || N <= 0) {
+                 showError("クロップ数 (N) は 1 以上の有効な数値である必要があります。");
+                return;
+            }
+            if (isNaN(minSize) || minSize <= 0) {
+                 showError("最小サイズは 0 より大きい有効な数値である必要があります。");
+                return;
+            }
+             if (isNaN(maxSize) || maxSize <= 0) {
+                 showError("最大サイズは 0 より大きい有効な数値である必要があります。");
+                return;
+            }
+             if (minSize > maxSize) {
+                showError("最小サイズは最大サイズ以下である必要があります。");
+                 // Swap them maybe? Or just error out. Let's error.
+                 // const temp = minSize;
+                 // minSize = maxSize;
+                 // maxSize = temp;
+                 // minSizeInput.value = minSize;
+                 // maxSizeInput.value = maxSize;
+                 return;
+            }
+             if (isNaN(angleRange) || angleRange < 0 || angleRange > 180) {
+                 showError("回転角の範囲は 0 から 180 までの有効な数値である必要があります。");
+                return;
+            }
+
+             // Ensure crop sizes are not larger than image dimensions
+             const smallerDimension = Math.min(originalImageWidth, originalImageHeight);
+             if (maxSize > smallerDimension) {
+                 console.warn(`Max size (${maxSize}) reduced to image smaller dimension (${smallerDimension})`);
+                 maxSize = smallerDimension;
+                 maxSizeInput.value = maxSize; // Update UI
+             }
+             if (minSize > maxSize) { // Re-check after maxSize adjustment
+                 minSize = maxSize;
+                 minSizeInput.value = minSize; // Update UI
+             }
+
+
+            // Start cropping process
+            startCropping(N, minSize, maxSize, angleRange);
+        });
+
+
+        // --- Helper Functions ---
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            // Hide after a few seconds
+            setTimeout(() => {
+                 errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+         function resetPreview() {
+            originalImage = null;
+            originalImageWidth = 0;
+            originalImageHeight = 0;
+            previewImage.src = "#";
+            previewImage.classList.add('hidden');
+            previewPlaceholder.classList.remove('hidden');
+            maxSizeInput.max = 1000; // Reset max constraint
+         }
+
+        function showLoading(isLoading) {
+             if (isLoading) {
+                loadingIndicator.classList.remove('hidden');
+                cropButton.disabled = true;
+                cropButton.querySelector('span').textContent = "処理中...";
+             } else {
+                 loadingIndicator.classList.add('hidden');
+                 cropButton.disabled = false;
+                 cropButton.querySelector('span').textContent = "クロップ開始";
+             }
+        }
+
+        function clearOutput() {
+            outputContainer.innerHTML = ''; // Clear previous results
+            outputPlaceholder.classList.remove('hidden'); // Show placeholder if needed
+        }
+
+         function displayCroppedImage(imageDataUrl) {
+            outputPlaceholder.classList.add('hidden'); // Hide placeholder once we have results
+            const imgElement = document.createElement('img');
+            imgElement.src = imageDataUrl;
+            imgElement.alt = "Cropped Image";
+            imgElement.classList.add('w-full', 'h-auto', 'object-cover', 'rounded', 'bg-white', 'shadow-sm', 'border', 'border-gray-200', 'crop-item');
+            imgElement.style.aspectRatio = '1 / 1'; // Ensure square display
+            outputContainer.appendChild(imgElement);
+         }
+
+        // --- Cropping Logic ---
+
+        async function startCropping(N, minSize, maxSize, angleRangeDeg) {
+            showLoading(true);
+            clearOutput();
+            errorMessage.classList.add('hidden'); // Clear previous errors
+
+            // Use requestAnimationFrame to avoid blocking the UI thread too much during generation
+            let generatedCount = 0;
+
+            function generateOneCrop() {
+                if (generatedCount >= N) {
+                    showLoading(false);
+                    console.log(`Generated ${generatedCount} crops.`);
+                    if(generatedCount === 0){ // If no crops could be generated (e.g., image too small)
+                        outputPlaceholder.textContent = "指定された条件でクロップを生成できませんでした。";
+                        outputPlaceholder.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                try {
+                    // 1. Determine random size
+                    const size = Math.floor(Math.random() * (maxSize - minSize + 1)) + minSize;
+
+                    // 2. Determine random angle
+                    const angleDeg = (Math.random() * 2 - 1) * angleRangeDeg; // Range: -angleRangeDeg to +angleRangeDeg
+                    const angleRad = angleDeg * Math.PI / 180;
+
+                    // 3. Calculate bounding box dimensions for the rotated square
+                    // The maximum distance from the center to any corner of the *bounding box* of the rotated square.
+                    // Simplified: max distance from center to a point on the perimeter of the rotated square
+                    const maxOffset = Math.ceil((size / 2) * (Math.abs(Math.sin(angleRad)) + Math.abs(Math.cos(angleRad))));
+
+
+                    // 4. Determine valid range for the *center* of the crop (cx, cy)
+                    // The center must be far enough from the edges so the rotated bounding box fits.
+                    const minX = maxOffset;
+                    const maxX = originalImageWidth - maxOffset;
+                    const minY = maxOffset;
+                    const maxY = originalImageHeight - maxOffset;
+
+                    // Check if cropping is possible with this size/angle
+                    if (minX >= maxX || minY >= maxY) {
+                         console.warn(`Cannot fit crop of size ${size} with rotation ${angleDeg}° in the image. Skipping this attempt.`);
+                         // Attempt to generate next one immediately without incrementing count effectively
+                         requestAnimationFrame(generateOneCrop);
+                         return; // Skip this iteration
+                    }
+
+                    // 5. Sample a random center point (cx, cy) within the valid range
+                    const cx = Math.floor(Math.random() * (maxX - minX)) + minX;
+                    const cy = Math.floor(Math.random() * (maxY - minY)) + minY;
+
+                    // 6. Create an offscreen canvas and draw the cropped/rotated section
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // --- Drawing logic ---
+                    // Move origin to the center of the destination canvas
+                    ctx.translate(size / 2, size / 2);
+                    // Rotate the coordinate system
+                    ctx.rotate(angleRad);
+                    // Move the origin back temporarily so we draw the source image correctly centered
+                    // ctx.translate(-size / 2, -size / 2); // This was an error in previous thinking
+
+                    // Draw the *portion* of the original image onto the rotated canvas
+                    // The key is drawing the original image centered at the *negative* of the
+                    // intended center point *relative to the rotated canvas center*.
+                    // Source rect center is (cx, cy) in original image coordinates.
+                    // Destination rect center is (0, 0) in the *rotated* canvas coordinates.
+                    ctx.drawImage(
+                        originalImage,
+                        cx - originalImageWidth / 2, // Center the source image relative to (cx, cy)
+                        cy - originalImageHeight / 2,
+                        originalImageWidth,
+                        originalImageHeight
+                    );
+
+                    // This alternative might be clearer: draw the *entire* source image offset
+                    // such that the desired crop center (cx, cy) aligns with the canvas's rotated origin (0,0)
+                    // Then the clipping happens automatically by the canvas bounds.
+                     ctx.drawImage(
+                         originalImage,
+                         // Calculate top-left corner of source image relative to the rotated canvas (0,0) point
+                         // which corresponds to (cx, cy) in the original image.
+                         -cx, // Draw image starting from its top-left, shifted so cx is at the origin
+                         -cy,
+                         originalImageWidth,
+                         originalImageHeight
+                     );
+
+                     // --- Let's try the most robust method: drawing the source sub-rectangle ---
+                     // Reset transform to be sure
+                     // ctx.setTransform(1, 0, 0, 1, 0, 0);
+                     // ctx.translate(size / 2, size / 2);
+                     // ctx.rotate(angleRad);
+                     // Draw the desired square section from the original image, centered around (cx, cy),
+                     // onto the destination canvas, centered around its *new* origin (which is the center)
+                     // ctx.drawImage(
+                     //     originalImage,
+                     //     cx - size / 2, // Source X (top-left of the square in original img)
+                     //     cy - size / 2, // Source Y
+                     //     size,       // Source Width
+                     //     size,       // Source Height
+                     //     -size / 2,  // Destination X (top-left relative to rotated center)
+                     //     -size / 2,  // Destination Y
+                     //     size,       // Destination Width
+                     //     size        // Destination Height
+                     // );
+
+
+                    // 7. Get Data URL and display
+                    const dataUrl = canvas.toDataURL('image/png');
+                    displayCroppedImage(dataUrl);
+
+                    generatedCount++;
+
+                } catch (error) {
+                    console.error("Error during cropping:", error);
+                    // Optionally show an error message, but continue trying
+                }
+
+                // Schedule the next crop generation
+                requestAnimationFrame(generateOneCrop);
+            }
+
+            // Start the generation loop
+            requestAnimationFrame(generateOneCrop);
+        }
+
+    </script>
+
+</body>
+
+</html>

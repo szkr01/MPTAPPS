@@ -1,0 +1,135 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    # パスを apps/**.html に修正 (バックスラッシュではなくスラッシュ)
+    paths:
+      - 'apps/**.html'
+      - 'index.html'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate index.html content
+        id: generate_index
+        run: |
+          echo "Generating cards for HTML files in apps/ directory..."
+          INDEX_FILE="index.html"
+          # ディレクトリ名を apps に修正
+          APP_DIR="apps"
+          PLACEHOLDER="<!-- APP_CARDS_PLACEHOLDER -->"
+          # ループ前に初期化
+          CARDS_HTML=""
+          DEFAULT_ICON="fas fa-file-alt" # デフォルトアイコン
+          DEFAULT_COLOR="gray"         # デフォルトカラー (Tailwind)
+
+          # find コマンドのパスも修正
+          if [ -d "$APP_DIR" ] && find "$APP_DIR" -maxdepth 1 -name '*.html' -print -quit | grep -q .; then
+            # find コマンドのパスも修正
+            while IFS= read -r -d $'\0' file; do
+              filename=$(basename "$file")
+              filename_no_ext="${filename%.*}"
+              # filepath を修正 (スラッシュ区切り)
+              filepath="./${APP_DIR}/${filename}"
+              # grep で大文字小文字を区別しないように -i オプションを追加 (-oi)
+              title=$(grep -oi '<title>.*</title>' "$file" | sed -e 's/<title>//I' -e 's/<\/title>//I' || echo "$filename_no_ext")
+              # description 変数を使用
+              description="「${title}」を起動します。"
+              icon_class="$DEFAULT_ICON"
+              color="$DEFAULT_COLOR"
+              # --- アイコン/色 設定 ---
+              if [[ "$filename_no_ext" == *"calc"* ]]; then icon_class="fas fa-calculator"; color="indigo";
+              elif [[ "$filename_no_ext" == *"note"* ]]; then icon_class="fas fa-sticky-note"; color="yellow";
+              elif [[ "$filename_no_ext" == *"weather"* ]]; then icon_class="fas fa-cloud-sun-rain"; color="blue";
+              elif [[ "$filename_no_ext" == *"game"* ]]; then icon_class="fas fa-gamepad"; color="red";
+              elif [[ "$filename_no_ext" == *"convert"* ]]; then icon_class="fas fa-exchange-alt"; color="green";
+              # --- 新しいアプリのルールを追加 ---
+              elif [[ "$filename_no_ext" == *"collage"* ]]; then icon_class="fas fa-cubes"; color="purple";
+              elif [[ "$filename_no_ext" == *"cropper"* ]]; then icon_class="fas fa-crop-alt"; color="teal";
+              # -----------------------------
+              # 他のルールを追加する場合はここに追加
+              fi
+              icon_color="text-${color}-500"
+              badge_bg="bg-${color}-100"
+              badge_text="text-${color}-700"
+
+              # --- 各カードのHTMLを一時変数に格納 ---
+              # description_escaped を description に修正
+              CARD_HTML="<a href=\"${filepath}\" class=\"block app-card bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg border border-gray-200\" data-app-id=\"${filename_no_ext}\">"
+              CARD_HTML+="<div class=\"p-6 flex flex-col items-center text-center h-full\">"
+              CARD_HTML+="<div class=\"mb-4\"><i class=\"${icon_class} fa-3x app-icon ${icon_color}\"></i></div>"
+              CARD_HTML+="<h2 class=\"text-xl font-semibold text-gray-800 mb-2\">${title}</h2>"
+              CARD_HTML+="<p class=\"text-gray-600 text-sm flex-grow\">${description}</p>"
+              CARD_HTML+="<span class=\"mt-4 inline-block ${badge_bg} ${badge_text} text-xs font-semibold px-3 py-1 rounded-full\">起動 <i class=\"fas fa-arrow-right ml-1 text-xs\"></i></span>"
+              CARD_HTML+="</div></a>"
+              # --- ここまで ---
+
+              # --- 生成したカードHTMLを CARDS_HTML に追記 ---
+              CARDS_HTML+="${CARD_HTML}\n"
+              # ------------------------------------------
+
+              echo "  Generated card for: $filename (Title: $title, Icon: $icon_class, Color: $color)"
+              # 不要な行を削除
+              # CARDS_HTML+="$CARD" # 生成したカードHTMLを変数に追加 (改行なし)# --- 変更ここまで ---
+              # CARDS_HTML+="$CARD\n" # 生成したカードHTMLを変数に追加
+            done < <(find "$APP_DIR" -maxdepth 1 -type f -name '*.html' -print0 | sort -z) # find のパス修正
+          else
+            # ディレクトリ名を apps に修正
+            echo "No HTML files found in $APP_DIR or directory does not exist."
+            # メッセージ内のディレクトリ名も修正
+            CARDS_HTML="<p class='text-center text-gray-500 col-span-full'>${APP_DIR}/ ディレクトリに表示するHTMLファイルが見つかりません。</p>"
+          fi
+
+          echo "Generated cards HTML block ready."
+
+          # --- index.html への挿入処理 (ここは変更なしでOK) ---
+          PLACEHOLDER_LINE=$(grep -n "$PLACEHOLDER" "$INDEX_FILE" | head -n 1 | cut -d: -f1)
+
+          if [ -z "$PLACEHOLDER_LINE" ]; then
+            echo "Error: Placeholder '$PLACEHOLDER' not found in $INDEX_FILE."
+            exit 1
+          fi
+
+          # 一時ファイルを使って安全に置換
+          # echo -e "$CARDS_HTML" を使用して、改行を正しく解釈させる
+          head -n $((PLACEHOLDER_LINE - 1)) "$INDEX_FILE" > index_new.html
+          echo -e "$CARDS_HTML" >> index_new.html
+          tail -n +$((PLACEHOLDER_LINE + 1)) "$INDEX_FILE" >> index_new.html
+
+          mv index_new.html "$INDEX_FILE"
+          echo "$INDEX_FILE updated successfully."
+          echo "::set-output name=index_updated::true" # 古い書き方なので、 GITHUB_OUTPUT を使う方が推奨される
+          # echo "index_updated=true" >> $GITHUB_OUTPUT # GITHUB_OUTPUT を使う場合
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # アップロードするパスを "." (カレントディレクトリ) に設定
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
