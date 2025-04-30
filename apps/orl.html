@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Portfolio | [Your Name]</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Google Fonts (Poppins) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom CSS for enhancements */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8fafc; /* Light gray background */
+            color: #1f2937; /* Default dark text */
+        }
+
+        /* Custom scrollbar (optional, might affect usability/consistency) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0; /* Lighter gray */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #10b981; /* Emerald 500 */
+            border-radius: 10px;
+            border: 2px solid #e2e8f0; /* Match track color */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #059669; /* Emerald 600 */
+        }
+
+        /* Active Nav Link Styling */
+        .nav-link.active {
+            font-weight: 700;
+            color: #10b981; /* Emerald 500 */
+            position: relative;
+        }
+        .nav-link.active::after {
+            content: '';
+            display: block;
+            width: 60%;
+            height: 2px;
+            background-color: #10b981; /* Emerald 500 */
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Section Title Underline */
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 50px;
+            height: 3px;
+            background-color: #10b981; /* Emerald 500 */
+            margin: 8px auto 0;
+            border-radius: 1px;
+        }
+
+        /* Project Card Hover Effect */
+        .project-card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.1), 0 4px 6px -4px rgba(16, 185, 129, 0.1); /* Subtle green shadow */
+        }
+
+        /* Subtle background pattern */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Example using SVG background pattern - adjust opacity/color as needed */
+            /* background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cg fill='%23d1fae5' fill-opacity='0.1'%3E%3Cpath d='M0 0h20v20H0z' fill='none'/%3E%3Cpath d='M10 0v20M0 10h20' stroke-width='0.5'/%3E%3C/g%3E%3C/svg%3E"); */
+            /* Using subtle dots */
+             background-image: radial-gradient(#6ee7b7 0.5px, transparent 0.5px); /* Emerald 300 dots */
+             background-size: 15px 15px;
+             opacity: 0.1;
+            z-index: -1; /* Place behind content */
+        }
+
+        /* Mobile menu transition */
+        #mobile-menu {
+            transition: transform 0.3s ease-in-out;
+        }
+        #mobile-menu.hidden {
+           transform: translateX(100%);
+        }
+    </style>
+
+    <script>
+        // Tailwind Config (optional customization)
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            light: '#6ee7b7', // emerald-300
+                            DEFAULT: '#10b981', // emerald-500
+                            dark: '#047857',  // emerald-700
+                        },
+                        secondary: '#0d9488', // teal-600
+                        accent: '#f59e0b', // amber-500
+                    },
+                }
+            }
+        }
+    </script>
+
+</head>
+
+<body class="antialiased">
+
+    <!-- Header/Navbar -->
+    <header class="bg-white/90 backdrop-blur-sm shadow-md fixed top-0 left-0 right-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#home" class="text-2xl font-bold text-primary-dark hover:text-primary transition duration-300">
+                <i class="fas fa-laptop-code mr-2"></i> Your Name
+            </a>
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex space-x-6">
+                <a href="#home" class="nav-link text-gray-600 hover:text-primary transition duration-300 px-3 py-2">Home</a>
+                <a href="#about" class="nav-link text-gray-600 hover:text-primary transition duration-300 px-3 py-2">About</a>
+                <a href="#skills" class="nav-link text-gray-600 hover:text-primary transition duration-300 px-3 py-2">Skills</a>
+                <a href="#projects" class="nav-link text-gray-600 hover:text-primary transition duration-300 px-3 py-2">Projects</a>
+                <a href="#contact" class="nav-link text-gray-600 hover:text-primary transition duration-300 px-3 py-2">Contact</a>
+            </div>
+            <!-- Mobile Menu Button -->
+            <div class="md:hidden">
+                <button id="mobile-menu-button" class="text-gray-600 hover:text-primary focus:outline-none">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+            </div>
+        </nav>
+        <!-- Mobile Menu (Hidden by default) -->
+        <div id="mobile-menu" class="hidden md:hidden fixed top-0 right-0 h-full w-64 bg-white shadow-lg p-6 transform translate-x-full">
+            <button id="close-mobile-menu" class="absolute top-4 right-4 text-gray-600 hover:text-primary text-2xl">×</button>
+            <div class="flex flex-col space-y-4 mt-8">
+                <a href="#home" class="nav-link-mobile block text-gray-700 hover:text-primary transition duration-300 py-2">Home</a>
+                <a href="#about" class="nav-link-mobile block text-gray-700 hover:text-primary transition duration-300 py-2">About</a>
+                <a href="#skills" class="nav-link-mobile block text-gray-700 hover:text-primary transition duration-300 py-2">Skills</a>
+                <a href="#projects" class="nav-link-mobile block text-gray-700 hover:text-primary transition duration-300 py-2">Projects</a>
+                <a href="#contact" class="nav-link-mobile block text-gray-700 hover:text-primary transition duration-300 py-2">Contact</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+
+        <!-- Hero Section -->
+        <section id="home" class="min-h-screen flex items-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 pt-20">
+            <div class="container mx-auto px-6 text-center">
+                <div class="max-w-3xl mx-auto">
+                    <img src="https://via.placeholder.com/150/10b981/ffffff?text=YN" alt="Profile Picture" class="w-32 h-32 md:w-40 md:h-40 rounded-full mx-auto mb-6 border-4 border-white shadow-lg">
+                    <h1 class="text-4xl md:text-6xl font-bold text-primary-dark mb-4">Hi, I'm [Your Name]</h1>
+                    <p class="text-xl md:text-2xl text-gray-700 mb-8">A Passionate <span class="font-semibold text-primary">Full Stack Developer</span> Building Modern Web Solutions.</p>
+                    <div class="space-x-4">
+                        <a href="#projects" class="bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-8 rounded-full transition duration-300 shadow-md hover:shadow-lg">
+                            View My Work <i class="fas fa-arrow-right ml-2"></i>
+                        </a>
+                        <a href="#contact" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-8 rounded-full transition duration-300 shadow-md hover:shadow-lg">
+                            Get In Touch
+                        </a>
+                    </div>
+                    <!-- Optional: Scroll Down Indicator -->
+                     <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce hidden md:block">
+                        <a href="#about" aria-label="Scroll down">
+                            <i class="fas fa-chevron-down text-primary text-2xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="py-20 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12 section-title">About Me</h2>
+                <div class="flex flex-col md:flex-row items-center gap-12">
+                    <div class="md:w-1/3 text-center md:text-left">
+                         <img src="https://via.placeholder.com/350x350/e0f2f7/047857?text=About+Image" alt="About Me Illustration" class="rounded-lg shadow-lg mx-auto">
+                    </div>
+                    <div class="md:w-2/3">
+                        <p class="text-lg text-gray-600 mb-4 leading-relaxed">
+                            Hello! I'm [Your Name], a dedicated and results-oriented software developer with a strong focus on creating efficient, scalable, and user-friendly web applications. My journey into tech started with [mention your origin story briefly - e.g., a fascination for how websites worked, a specific project].
+                        </p>
+                        <p class="text-lg text-gray-600 mb-4 leading-relaxed">
+                            I thrive in collaborative environments and enjoy tackling complex problems. My expertise lies in both front-end and back-end development, allowing me to build complete solutions from concept to deployment. I'm constantly learning and exploring new technologies to stay ahead in this ever-evolving field.
+                        </p>
+                         <p class="text-lg text-gray-600 leading-relaxed">
+                            When I'm not coding, you can find me [mention a hobby or two, e.g., exploring nature, contributing to open-source projects, playing a musical instrument]. I believe in building not just software, but also strong relationships and impactful experiences.
+                        </p>
+                        <div class="mt-8 text-center md:text-left">
+                             <a href="/path/to/your/resume.pdf" target="_blank" rel="noopener noreferrer" class="inline-block bg-primary-light hover:bg-primary text-primary-dark hover:text-white font-semibold py-2 px-6 rounded-full transition duration-300 shadow hover:shadow-md">
+                                Download Resume <i class="fas fa-download ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skills Section -->
+        <section id="skills" class="py-20 bg-emerald-50">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12 section-title">My Tech Stack</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-8 text-center">
+                    <!-- Skill Item Example -->
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-html5 text-5xl text-orange-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">HTML5</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-css3-alt text-5xl text-blue-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">CSS3</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-js-square text-5xl text-yellow-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">JavaScript</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-react text-5xl text-sky-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">React</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-node-js text-5xl text-green-600 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Node.js</h3>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fas fa-database text-5xl text-blue-700 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">SQL/NoSQL</h3>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-python text-5xl text-yellow-400 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Python</h3>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-git-alt text-5xl text-red-500 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Git</h3>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                        <i class="fab fa-docker text-5xl text-blue-600 mb-3 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="text-lg font-semibold text-gray-700">Docker</h3>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center group">
+                         <svg class="w-12 h-12 mb-3 text-cyan-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <h3 class="text-lg font-semibold text-gray-700">TailwindCSS</h3>
+                    </div>
+                    <!-- Add more skills as needed -->
+                </div>
+                 <p class="text-center text-gray-600 mt-10 italic">...and always eager to learn more!</p>
+            </div>
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projects" class="py-20 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12 section-title">Featured Projects</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+
+                    <!-- Project Card 1 -->
+                    <div class="bg-gray-50 rounded-lg shadow-md overflow-hidden project-card">
+                        <img src="https://via.placeholder.com/400x250/10b981/ffffff?text=Project+1+Screenshot" alt="Project 1 Screenshot" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-semibold text-primary-dark mb-2">Project Title One</h3>
+                            <p class="text-gray-600 mb-4 text-sm">A brief description of the project, its purpose, and the key features or problems it solves. Focus on the impact.</p>
+                            <div class="mb-4">
+                                <span class="inline-block bg-primary-light text-primary-dark text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">React</span>
+                                <span class="inline-block bg-teal-100 text-teal-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Node.js</span>
+                                <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">MongoDB</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary-dark transition duration-300 font-medium text-sm">
+                                    <i class="fas fa-external-link-alt mr-1"></i> Live Demo
+                                </a>
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-gray-800 transition duration-300 text-sm">
+                                    <i class="fab fa-github mr-1"></i> View Code
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project Card 2 -->
+                    <div class="bg-gray-50 rounded-lg shadow-md overflow-hidden project-card">
+                        <img src="https://via.placeholder.com/400x250/059669/ffffff?text=Project+2+Screenshot" alt="Project 2 Screenshot" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-semibold text-primary-dark mb-2">Project Title Two</h3>
+                            <p class="text-gray-600 mb-4 text-sm">Another project description goes here. Highlight the technologies used and the challenges overcome.</p>
+                             <div class="mb-4">
+                                <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Python</span>
+                                <span class="inline-block bg-blue-100 text-blue-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Flask</span>
+                                <span class="inline-block bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">PostgreSQL</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary-dark transition duration-300 font-medium text-sm">
+                                    <i class="fas fa-external-link-alt mr-1"></i> Live Demo
+                                </a>
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-gray-800 transition duration-300 text-sm">
+                                    <i class="fab fa-github mr-1"></i> View Code
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project Card 3 -->
+                    <div class="bg-gray-50 rounded-lg shadow-md overflow-hidden project-card">
+                        <img src="https://via.placeholder.com/400x250/047857/ffffff?text=Project+3+Screenshot" alt="Project 3 Screenshot" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <h3 class="text-xl font-semibold text-primary-dark mb-2">Project Title Three</h3>
+                            <p class="text-gray-600 mb-4 text-sm">This project involved [mention something specific]. Used modern frontend tools for a responsive UI.</p>
+                             <div class="mb-4">
+                                <span class="inline-block bg-sky-100 text-sky-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Vue.js</span>
+                                <span class="inline-block bg-purple-100 text-purple-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">Firebase</span>
+                                <span class="inline-block bg-cyan-100 text-cyan-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">TailwindCSS</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-primary hover:text-primary-dark transition duration-300 font-medium text-sm">
+                                    <i class="fas fa-external-link-alt mr-1"></i> Live Demo
+                                </a>
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-gray-500 hover:text-gray-800 transition duration-300 text-sm">
+                                    <i class="fab fa-github mr-1"></i> View Code
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add more project cards as needed -->
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="py-20 bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-1 section-title-light">Get In Touch</h2>
+                 <p class="text-center text-emerald-100 mb-10 text-lg max-w-2xl mx-auto">I'm always open to discussing new projects, creative ideas or opportunities to be part of your visions. Feel free to reach out!</p>
+                <div class="max-w-2xl mx-auto bg-white/10 backdrop-blur-sm p-8 rounded-lg shadow-xl">
+                    <form action="#" method="POST"> <!-- Replace # with your form endpoint -->
+                        <div class="mb-6">
+                            <label for="name" class="block text-emerald-100 font-medium mb-2">Name</label>
+                            <input type="text" id="name" name="name" required class="w-full px-4 py-2 bg-white/20 rounded border border-transparent focus:border-emerald-200 focus:bg-white/30 focus:outline-none placeholder-emerald-200 transition duration-300">
+                        </div>
+                        <div class="mb-6">
+                            <label for="email" class="block text-emerald-100 font-medium mb-2">Email</label>
+                            <input type="email" id="email" name="email" required class="w-full px-4 py-2 bg-white/20 rounded border border-transparent focus:border-emerald-200 focus:bg-white/30 focus:outline-none placeholder-emerald-200 transition duration-300">
+                        </div>
+                        <div class="mb-6">
+                            <label for="message" class="block text-emerald-100 font-medium mb-2">Message</label>
+                            <textarea id="message" name="message" rows="5" required class="w-full px-4 py-2 bg-white/20 rounded border border-transparent focus:border-emerald-200 focus:bg-white/30 focus:outline-none placeholder-emerald-200 transition duration-300"></textarea>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="bg-white hover:bg-emerald-50 text-primary-dark font-bold py-3 px-8 rounded-full transition duration-300 shadow-md hover:shadow-lg">
+                                Send Message <i class="fas fa-paper-plane ml-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <!-- Social Links -->
+                <div class="text-center mt-12">
+                    <p class="text-emerald-100 mb-4">Connect with me:</p>
+                    <div class="flex justify-center space-x-6">
+                         <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer" class="text-emerald-100 hover:text-white text-3xl transition duration-300">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="https://linkedin.com/in/yourusername" target="_blank" rel="noopener noreferrer" class="text-emerald-100 hover:text-white text-3xl transition duration-300">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                         <a href="https://twitter.com/yourusername" target="_blank" rel="noopener noreferrer" class="text-emerald-100 hover:text-white text-3xl transition duration-300">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                         <a href="mailto:your.email@example.com" class="text-emerald-100 hover:text-white text-3xl transition duration-300">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-400 py-6">
+        <div class="container mx-auto px-6 text-center">
+            <p>© <span id="current-year"></span> [Your Name]. All rights reserved.</p>
+             <p class="text-sm mt-1">Built with <i class="fas fa-heart text-red-500"></i> using HTML, TailwindCSS, and JavaScript.</p>
+        </div>
+    </footer>
+
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Mobile Menu ---
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const closeMobileMenuButton = document.getElementById('close-mobile-menu');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileNavLinks = document.querySelectorAll('#mobile-menu .nav-link-mobile');
+
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.remove('hidden');
+                mobileMenu.classList.remove('translate-x-full');
+            });
+
+            closeMobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.add('translate-x-full');
+                 // Add a small delay to hide after transition
+                 setTimeout(() => {
+                    mobileMenu.classList.add('hidden');
+                }, 300);
+            });
+
+            // Close mobile menu when a link is clicked
+            mobileNavLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('translate-x-full');
+                     setTimeout(() => {
+                        mobileMenu.classList.add('hidden');
+                    }, 300);
+                });
+            });
+
+            // --- Smooth Scrolling ---
+            // (Handled by <html class="scroll-smooth"> and standard anchor links)
+            // You could add more sophisticated JS smooth scrolling if needed,
+            // but the CSS approach is simpler and often sufficient.
+
+            // --- Active Nav Link Highlighting ---
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('nav .nav-link'); // Desktop links only for this observer
+
+            const observerOptions = {
+                root: null, // viewport
+                rootMargin: '-50% 0px -50% 0px', // Trigger when section is in the middle 50% of the viewport
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href') === `#${id}`) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+
+            // --- Footer Current Year ---
+             const currentYearSpan = document.getElementById('current-year');
+             if (currentYearSpan) {
+                currentYearSpan.textContent = new Date().getFullYear();
+             }
+
+            // --- Contact Section Title Style (for dark bg) ---
+            const contactTitle = document.querySelector('#contact h2');
+            if (contactTitle) {
+                contactTitle.classList.remove('section-title'); // remove default underline
+                contactTitle.classList.add('section-title-light'); // add class for potential light styling
+                // Custom light underline for contact section
+                contactTitle.style.position = 'relative';
+                contactTitle.style.paddingBottom = '10px'; // space for underline
+                const lightUnderline = document.createElement('span');
+                lightUnderline.style.display = 'block';
+                lightUnderline.style.width = '50px';
+                lightUnderline.style.height = '3px';
+                lightUnderline.style.backgroundColor = '#6ee7b7'; // emerald-300
+                lightUnderline.style.margin = '8px auto 0';
+                lightUnderline.style.borderRadius = '1px';
+                lightUnderline.style.position = 'absolute';
+                lightUnderline.style.bottom = '0';
+                lightUnderline.style.left = '50%';
+                lightUnderline.style.transform = 'translateX(-50%)';
+                contactTitle.appendChild(lightUnderline);
+
+            }
+
+        });
+    </script>
+
+</body>
+
+</html>

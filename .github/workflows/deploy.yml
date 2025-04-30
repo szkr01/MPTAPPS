@@ -102,7 +102,7 @@ jobs:
 
           echo "Generated cards HTML block ready."
 
-          # --- index.html への挿入処理 (ここは変更なしでOK) ---
+          # --- index.html への挿入 ---
           PLACEHOLDER_LINE=$(grep -n "$PLACEHOLDER" "$INDEX_FILE" | head -n 1 | cut -d: -f1)
 
           if [ -z "$PLACEHOLDER_LINE" ]; then

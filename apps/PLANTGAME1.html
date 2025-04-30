@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プラントローグ：放置型育成クリッカー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom CSS for progress bar animation and finer control */
+        .progress-bar-inner {
+            transition: width 0.5s ease-in-out;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .log-message {
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* More distinct visual states for the plant */
+        .plant-healthy { color: #2ecc71; } /* Emerald green */
+        .plant-wilting { color: #f39c12; animation: pulse 2s infinite ease-in-out; } /* Orange, slight pulse */
+        .plant-dying { color: #e74c3c; animation: shake 0.5s infinite; } /* Red, shaking */
+        .plant-dead { color: #7f8c8d; } /* Gray */
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-3px) rotate(-2deg); }
+          75% { transform: translateX(3px) rotate(2deg); }
+        }
+
+        /* Perk Button Styling */
+        .perk-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #95a5a6; /* Grayer background */
+        }
+        .perk-button.purchased {
+             background-color: #27ae60; /* Greener background when purchased */
+             border-color: #2ecc71;
+             cursor: default;
+        }
+       .perk-button.purchased:hover {
+            background-color: #27ae60; /* Keep green on hover */
+       }
+        /* Simple particle effect on click */
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.8;
+            animation: fly-up 0.7s ease-out forwards;
+        }
+        @keyframes fly-up {
+            0% { transform: translateY(0) scale(1); opacity: 0.8; }
+            100% { transform: translateY(-80px) scale(0.5); opacity: 0; }
+        }
+        .water-particle { background-color: #3498db; } /* Blue */
+        .sun-particle { background-color: #f1c40f; } /* Yellow */
+        .growth-particle { background-color: #2ecc71; } /* Green */
+
+        /* Custom gradient background */
+        body {
+             background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%); /* Green gradient */
+        }
+
+        /* Glassmorphism effect for main container */
+         .glass-container {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px); /* Safari */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+         }
+
+        /* Modal backdrop blur */
+        #perks-modal {
+             background: rgba(0, 0, 0, 0.6);
+             backdrop-filter: blur(5px);
+             -webkit-backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
+
+    <div class="glass-container rounded-xl shadow-2xl p-6 md:p-8 max-w-5xl w-full flex flex-col md:flex-row gap-8 relative overflow-hidden">
+
+        <!-- Particles Container -->
+        <div id="particle-container" class="absolute inset-0 pointer-events-none z-0"></div>
+
+        <!-- Left Panel: Plant Display & Stats -->
+        <div class="w-full md:w-1/2 flex flex-col items-center z-10">
+            <h2 class="text-3xl font-bold mb-4 text-white text-shadow">あなたの植物</h2>
+
+            <div id="plant-click-area" class="mb-5 cursor-pointer transition-transform duration-100 ease-out active:scale-95 relative">
+                 <div id="plant-visual" class="text-8xl md:text-9xl text-center plant-healthy">🌱</div>
+                 <div id="plant-name" class="text-center text-xl font-semibold mt-2 text-white text-shadow">小さな苗</div>
+            </div>
+
+
+            <div class="w-full space-y-3">
+                <!-- Health Bar -->
+                <div class="mb-2">
+                    <div class="flex justify-between mb-1 text-sm font-medium text-white text-shadow">
+                        <span><i class="fas fa-heartbeat mr-1 text-red-400"></i> ヘルス</span>
+                        <span id="health-value">100 / 100</span>
+                    </div>
+                    <div class="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden border border-gray-300/50">
+                        <div id="health-bar" class="bg-red-500 h-4 rounded-full progress-bar-inner text-xs font-medium text-white text-center leading-none" style="width: 100%"></div>
+                    </div>
+                </div>
+                <!-- Water Bar -->
+                 <div class="mb-2">
+                    <div class="flex justify-between mb-1 text-sm font-medium text-white text-shadow">
+                        <span><i class="fas fa-tint mr-1 text-blue-400"></i> 水分</span>
+                        <span id="water-value">50 / 100</span>
+                    </div>
+                    <div class="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden border border-gray-300/50">
+                        <div id="water-bar" class="bg-blue-500 h-4 rounded-full progress-bar-inner text-xs font-medium text-white text-center leading-none" style="width: 50%"></div>
+                    </div>
+                </div>
+                <!-- Sunlight Bar -->
+                 <div class="mb-2">
+                    <div class="flex justify-between mb-1 text-sm font-medium text-white text-shadow">
+                        <span><i class="fas fa-sun mr-1 text-yellow-400"></i> 日光</span>
+                        <span id="sunlight-value">50 / 100</span>
+                    </div>
+                    <div class="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden border border-gray-300/50">
+                        <div id="sunlight-bar" class="bg-yellow-400 h-4 rounded-full progress-bar-inner text-xs font-medium text-white text-center leading-none" style="width: 50%"></div>
+                    </div>
+                </div>
+                <!-- Growth Bar -->
+                <div class="mb-2">
+                    <div class="flex justify-between mb-1 text-sm font-medium text-white text-shadow">
+                        <span><i class="fas fa-seedling mr-1 text-green-400"></i> 成長</span>
+                        <span id="growth-value">0 / 100</span>
+                    </div>
+                    <div class="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden border border-gray-300/50">
+                        <div id="growth-bar" class="bg-green-500 h-4 rounded-full progress-bar-inner text-xs font-medium text-white text-center leading-none" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+             <div id="plant-status-message" class="mt-4 text-center text-lg font-semibold text-yellow-200 text-shadow-md"></div>
+
+        </div>
+
+        <!-- Right Panel: Controls, Log, Perks -->
+        <div class="w-full md:w-1/2 flex flex-col z-10">
+             <h3 class="text-2xl font-bold mb-4 text-white text-shadow text-center md:text-left">アクション & 情報</h3>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <button id="water-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105 active:scale-100">
+                    <i class="fas fa-tint"></i> 水をやる
+                </button>
+                <button id="sunlight-button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105 active:scale-100">
+                    <i class="fas fa-sun"></i> 日光を当てる
+                </button>
+            </div>
+
+             <!-- Pest Button (appears when needed) -->
+             <button id="pest-button" class="hidden bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center justify-center gap-2 mb-4 transform hover:scale-105 active:scale-100 animate-pulse">
+                 <i class="fas fa-bug"></i> 害虫駆除！
+             </button>
+
+            <!-- Game Log -->
+            <div class="mb-4">
+                <label for="game-log" class="block mb-1 text-sm font-medium text-white text-shadow">ログ:</label>
+                <div id="game-log" class="h-32 bg-white/70 rounded-md p-3 overflow-y-auto border border-gray-300/50 text-sm shadow-inner">
+                    <p class="log-message text-gray-600">ゲーム開始！ 種を植えました。</p>
+                </div>
+            </div>
+
+            <!-- Perk Points & Buttons -->
+             <div class="bg-white/20 p-4 rounded-lg shadow-md">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-lg font-semibold text-white text-shadow"><i class="fas fa-star text-yellow-300 mr-1"></i> パークポイント:</span>
+                    <span id="perk-points-display" class="text-xl font-bold text-white text-shadow">0</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="perks-button" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-150 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105 active:scale-100">
+                        <i class="fas fa-award"></i> パークを見る
+                    </button>
+                     <button id="new-plant-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-150 ease-in-out flex items-center justify-center gap-2 transform hover:scale-105 active:scale-100" disabled>
+                         <i class="fas fa-redo"></i> 新しい植物
+                     </button>
+                </div>
+             </div>
+
+        </div>
+    </div>
+
+    <!-- Perks Modal -->
+    <div id="perks-modal" class="fixed inset-0 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 md:p-8 rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">パークショップ</h3>
+                <button id="close-perks-modal" class="text-gray-500 hover:text-red-500 text-2xl">×</button>
+            </div>
+            <div class="mb-4 text-center">
+                <span class="text-lg font-semibold text-gray-700">利用可能なポイント:</span>
+                <span id="modal-perk-points" class="text-xl font-bold text-purple-600">0</span> <i class="fas fa-star text-yellow-500"></i>
+            </div>
+            <div id="perks-list" class="space-y-3 overflow-y-auto pr-2 flex-grow">
+                <!-- Perks will be populated here by JavaScript -->
+            </div>
+             <p class="mt-4 text-xs text-gray-500 text-center">パークは永続的で、次の植物に影響します。</p>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const plantVisual = document.getElementById('plant-visual');
+        const plantName = document.getElementById('plant-name');
+        const healthBar = document.getElementById('health-bar');
+        const healthValue = document.getElementById('health-value');
+        const waterBar = document.getElementById('water-bar');
+        const waterValue = document.getElementById('water-value');
+        const sunlightBar = document.getElementById('sunlight-bar');
+        const sunlightValue = document.getElementById('sunlight-value');
+        const growthBar = document.getElementById('growth-bar');
+        const growthValue = document.getElementById('growth-value');
+        const waterButton = document.getElementById('water-button');
+        const sunlightButton = document.getElementById('sunlight-button');
+        const plantClickArea = document.getElementById('plant-click-area');
+        const gameLog = document.getElementById('game-log');
+        const perkPointsDisplay = document.getElementById('perk-points-display');
+        const modalPerkPoints = document.getElementById('modal-perk-points');
+        const perksButton = document.getElementById('perks-button');
+        const newPlantButton = document.getElementById('new-plant-button');
+        const perksModal = document.getElementById('perks-modal');
+        const closePerksModalButton = document.getElementById('close-perks-modal');
+        const perksListContainer = document.getElementById('perks-list');
+        const plantStatusMessage = document.getElementById('plant-status-message');
+        const pestButton = document.getElementById('pest-button');
+        const particleContainer = document.getElementById('particle-container');
+
+        // Game State Variables
+        let plant = {};
+        let perkPoints = 0;
+        let purchasedPerks = {}; // { perkId: level }
+        let gameLoopInterval = null;
+        let lastTimestamp = 0;
+        let isGameOver = false;
+        let currentPest = null; // null or { type: 'aphids', difficulty: 1 }
+
+        const TICK_INTERVAL = 1000; // ms per game tick (for passive changes)
+        const CLICK_WATER_AMOUNT = 15;
+        const CLICK_SUNLIGHT_AMOUNT = 15;
+        const CLICK_GROWTH_AMOUNT = 2;
+
+        // Plant Stages Definition
+        const plantStages = [
+            { name: "種", visual: "🌰", growthThreshold: 0, maxHealth: 50, maxWater: 50, maxSunlight: 50 },
+            { name: "発芽", visual: "🌱", growthThreshold: 50, maxHealth: 75, maxWater: 75, maxSunlight: 75 },
+            { name: "小さな苗", visual: "🌿", growthThreshold: 150, maxHealth: 100, maxWater: 100, maxSunlight: 100 },
+            { name: "若木", visual: "🌳", growthThreshold: 350, maxHealth: 150, maxWater: 120, maxSunlight: 120 },
+            { name: "成熟した木", visual: "🌲", growthThreshold: 700, maxHealth: 200, maxWater: 150, maxSunlight: 150 },
+            { name: "開花", visual: "🌸", growthThreshold: 1200, maxHealth: 250, maxWater: 180, maxSunlight: 180 }, // Example final stage
+        ];
+
+        // Available Perks Definition
+        const availablePerks = [
+             { id: 'water_efficiency', name: '節水術', description: '水分の減少速度が5%遅くなる (最大5回)', cost: [10, 20, 40, 80, 150], maxLevel: 5, effect: 0.05 },
+             { id: 'sun_absorption', name: '日光吸収UP', description: '日光の減少速度が5%遅くなる (最大5回)', cost: [10, 20, 40, 80, 150], maxLevel: 5, effect: 0.05 },
+             { id: 'nutrient_boost', name: '成長促進', description: 'クリック時の成長量が10%増加 (最大5回)', cost: [15, 30, 60, 120, 200], maxLevel: 5, effect: 0.10 },
+             { id: 'hardy_roots', name: '丈夫な根', description: '最大ヘルスが10%増加 (最大5回)', cost: [20, 40, 80, 150, 250], maxLevel: 5, effect: 0.10 },
+             { id: 'pest_resistance', name: '害虫抵抗', description: '害虫イベントの発生率が5%減少 (最大5回)', cost: [25, 50, 100, 180, 300], maxLevel: 5, effect: 0.05 },
+             { id: 'click_power_water', name: '散水マスター', description: '「水をやる」の効果が10%増加 (最大5回)', cost: [12, 25, 50, 100, 180], maxLevel: 5, effect: 0.10 },
+             { id: 'click_power_sun', name: '太陽の恵み', description: '「日光を当てる」の効果が10%増加 (最大5回)', cost: [12, 25, 50, 100, 180], maxLevel: 5, effect: 0.10 },
+        ];
+
+        // --- Helper Functions ---
+
+        function getPerkLevel(perkId) {
+            return purchasedPerks[perkId] || 0;
+        }
+
+        function getPerkEffect(perkId) {
+            const perk = availablePerks.find(p => p.id === perkId);
+            if (!perk) return 0;
+            const level = getPerkLevel(perkId);
+            return level * perk.effect;
+        }
+
+        function calculateMaxStat(baseMax, perkId) {
+            const perkEffect = getPerkEffect(perkId);
+            return Math.round(baseMax * (1 + perkEffect));
+         }
+
+        function updateUI() {
+            if (!plant || Object.keys(plant).length === 0) return; // Don't update if plant not initialized
+
+            const stageInfo = plantStages[plant.stageIndex];
+
+            // Update Plant Visual & Name
+            plantName.textContent = stageInfo.name;
+
+             // Update plant visual based on health percentage
+            const healthPercent = (plant.health / plant.maxHealth) * 100;
+            plantVisual.className = `text-8xl md:text-9xl text-center transition-colors duration-500 `; // Base classes
+            if (isGameOver && plant.health <= 0) {
+                plantVisual.textContent = '💀'; // Dead Skull
+                plantVisual.classList.add('plant-dead');
+                plantStatusMessage.textContent = "枯れてしまいました...";
+                plantStatusMessage.style.color = '#e74c3c'; // Red
+            } else if (healthPercent <= 0) {
+                 plantVisual.textContent = stageInfo.visual; // Show stage visual even if technically dead before game over registers
+                 plantVisual.classList.add('plant-dead');
+            } else if (healthPercent < 30 || plant.water < 10 || plant.sunlight < 10) {
+                plantVisual.textContent = stageInfo.visual;
+                plantVisual.classList.add('plant-dying'); // Dying state
+                plantStatusMessage.textContent = "危険な状態です！";
+                 plantStatusMessage.style.color = '#e74c3c'; // Red
+            } else if (healthPercent < 60 || plant.water < 30 || plant.sunlight < 30) {
+                 plantVisual.textContent = stageInfo.visual;
+                 plantVisual.classList.add('plant-wilting'); // Wilting state
+                 plantStatusMessage.textContent = "元気がありません...";
+                 plantStatusMessage.style.color = '#f39c12'; // Orange
+            } else {
+                 plantVisual.textContent = stageInfo.visual;
+                 plantVisual.classList.add('plant-healthy'); // Healthy state
+                 plantStatusMessage.textContent = ""; // Clear message if healthy
+            }
+
+
+            // Update Bars & Values
+            healthBar.style.width = `${Math.max(0, (plant.health / plant.maxHealth) * 100)}%`;
+            healthValue.textContent = `${Math.round(plant.health)} / ${plant.maxHealth}`;
+            healthBar.textContent = `${Math.round(Math.max(0, (plant.health / plant.maxHealth) * 100))}%`;
+
+
+            waterBar.style.width = `${Math.max(0, (plant.water / plant.maxWater) * 100)}%`;
+            waterValue.textContent = `${Math.round(plant.water)} / ${plant.maxWater}`;
+            waterBar.textContent = `${Math.round(Math.max(0, (plant.water / plant.maxWater) * 100))}%`;
+
+
+            sunlightBar.style.width = `${Math.max(0, (plant.sunlight / plant.maxSunlight) * 100)}%`;
+            sunlightValue.textContent = `${Math.round(plant.sunlight)} / ${plant.maxSunlight}`;
+            sunlightBar.textContent = `${Math.round(Math.max(0, (plant.sunlight / plant.maxSunlight) * 100))}%`;
+
+
+             const nextStageGrowth = plant.stageIndex + 1 < plantStages.length ? plantStages[plant.stageIndex + 1].growthThreshold : plant.growth; // Use current growth if max stage
+             const currentStageGrowth = plant.stageIndex > 0 ? plantStages[plant.stageIndex].growthThreshold : 0;
+             const growthNeededForStage = nextStageGrowth - currentStageGrowth;
+             const growthProgressInStage = plant.growth - currentStageGrowth;
+
+            let growthPercent = 0;
+             if (plant.stageIndex + 1 >= plantStages.length) {
+                 growthPercent = 100; // Max stage reached
+                 growthValue.textContent = `最大 (${Math.round(plant.growth)})`;
+                 growthBar.textContent = "MAX";
+             } else if (growthNeededForStage > 0) {
+                growthPercent = Math.max(0, Math.min(100, (growthProgressInStage / growthNeededForStage) * 100));
+                growthValue.textContent = `${Math.round(plant.growth)} / ${nextStageGrowth}`;
+                growthBar.textContent = `${Math.round(growthPercent)}%`;
+             } else {
+                 growthValue.textContent = `${Math.round(plant.growth)} / ${nextStageGrowth}`; // Should not happen often if thresholds > 0
+                 growthBar.textContent = `0%`;
+             }
+            growthBar.style.width = `${growthPercent}%`;
+
+
+            // Update Perk Points
+            perkPointsDisplay.textContent = perkPoints;
+            modalPerkPoints.textContent = perkPoints;
+
+            // Update Button States
+            newPlantButton.disabled = !isGameOver;
+            waterButton.disabled = isGameOver;
+            sunlightButton.disabled = isGameOver;
+            plantClickArea.style.pointerEvents = isGameOver ? 'none' : 'auto'; // Disable clicking plant on game over
+
+             // Pest button visibility
+             pestButton.classList.toggle('hidden', !currentPest || isGameOver);
+        }
+
+        function addLogMessage(message, type = 'info') {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.classList.add('log-message', 'mb-1');
+            switch(type) {
+                case 'info': p.classList.add('text-gray-700'); break;
+                case 'success': p.classList.add('text-green-700', 'font-semibold'); break;
+                case 'warning': p.classList.add('text-yellow-700', 'font-semibold'); break;
+                case 'danger': p.classList.add('text-red-700', 'font-semibold'); break;
+                case 'event': p.classList.add('text-purple-700', 'italic'); break;
+            }
+            gameLog.appendChild(p);
+            // Auto-scroll to bottom
+            gameLog.scrollTop = gameLog.scrollHeight;
+
+             // Limit log length (optional)
+             const maxLogMessages = 50;
+             if (gameLog.children.length > maxLogMessages) {
+                 gameLog.removeChild(gameLog.children[0]);
+             }
+        }
+
+         function createParticle(x, y, type) {
+             const particle = document.createElement('div');
+             particle.classList.add('particle');
+             let particleClass = '';
+             switch(type) {
+                 case 'water': particleClass = 'water-particle'; break;
+                 case 'sun': particleClass = 'sun-particle'; break;
+                 case 'growth': particleClass = 'growth-particle'; break;
+             }
+             particle.classList.add(particleClass);
+             particle.style.left = `${x}px`;
+             particle.style.top = `${y}px`;
+
+             particleContainer.appendChild(particle);
+
+             // Randomize direction slightly
+             const angle = Math.random() * Math.PI - Math.PI / 2; // -90 to 90 degrees approx
+             const distance = 60 + Math.random() * 40; // 60-100px
+             const translateX = Math.cos(angle) * distance;
+             const translateY = Math.sin(angle) * distance - 80; // Bias upwards
+
+             particle.animate([
+                 { transform: `translate(0, 0) scale(1)`, opacity: 0.8 },
+                 { transform: `translate(${translateX}px, ${translateY}px) scale(0.5)`, opacity: 0 }
+             ], {
+                 duration: 700 + Math.random() * 300, // 700-1000ms
+                 easing: 'ease-out'
+             });
+
+
+             setTimeout(() => {
+                 particle.remove();
+             }, 1000); // Remove particle after animation duration
+         }
+
+        // --- Game Logic Functions ---
+
+        function initPlant() {
+             isGameOver = false;
+             currentPest = null;
+             const baseStage = plantStages[0];
+
+             // Calculate max stats based on perks
+             const maxHealth = calculateMaxStat(baseStage.maxHealth, 'hardy_roots');
+             const maxWater = baseStage.maxWater; // No perk for max water/sun yet
+             const maxSunlight = baseStage.maxSunlight;
+
+            plant = {
+                 stageIndex: 0,
+                 growth: 0,
+                 health: maxHealth,
+                 water: maxWater * 0.7, // Start with decent water/sun
+                 sunlight: maxSunlight * 0.7,
+                 maxHealth: maxHealth,
+                 maxWater: maxWater,
+                 maxSunlight: maxSunlight,
+             };
+             addLogMessage("新しい種を植えました！", "success");
+            updateUI();
+        }
+
+        function startGame() {
+            loadGameState(); // Load perks and points first
+            initPlant();
+            if (gameLoopInterval) clearInterval(gameLoopInterval); // Clear previous interval if any
+            gameLoopInterval = setInterval(gameLoopTick, TICK_INTERVAL);
+            updateUI(); // Initial UI update
+            populatePerksModal(); // Ensure modal is ready
+        }
+
+         function waterPlant(event) {
+             if (isGameOver) return;
+             const baseAmount = CLICK_WATER_AMOUNT;
+             const bonusMultiplier = 1 + getPerkEffect('click_power_water');
+             const amount = Math.round(baseAmount * bonusMultiplier);
+             plant.water = Math.min(plant.maxWater, plant.water + amount);
+             addLogMessage(`水を ${amount} 与えました。`, 'info');
+
+             // Create particle effect at button location
+             const rect = waterButton.getBoundingClientRect();
+             const x = rect.left + rect.width / 2 + window.scrollX;
+             const y = rect.top + rect.height / 2 + window.scrollY;
+             for (let i=0; i<5; i++) createParticle(x,y, 'water'); // 5 particles
+
+             updateUI();
+         }
+
+         function giveSunlight(event) {
+             if (isGameOver) return;
+             const baseAmount = CLICK_SUNLIGHT_AMOUNT;
+             const bonusMultiplier = 1 + getPerkEffect('click_power_sun');
+             const amount = Math.round(baseAmount * bonusMultiplier);
+             plant.sunlight = Math.min(plant.maxSunlight, plant.sunlight + amount);
+             addLogMessage(`日光を ${amount} 与えました。`, 'info');
+
+             // Create particle effect at button location
+             const rect = sunlightButton.getBoundingClientRect();
+             const x = rect.left + rect.width / 2 + window.scrollX;
+             const y = rect.top + rect.height / 2 + window.scrollY;
+              for (let i=0; i<5; i++) createParticle(x, y, 'sun'); // 5 particles
+
+             updateUI();
+         }
+
+         function clickPlant(event) {
+             if (isGameOver) return;
+             const baseAmount = CLICK_GROWTH_AMOUNT;
+             const bonusMultiplier = 1 + getPerkEffect('nutrient_boost');
+             const amount = baseAmount * bonusMultiplier;
+             plant.growth += amount;
+             // addLogMessage(`クリックで成長 +${amount.toFixed(1)}`, 'info'); // Maybe too spammy
+
+             // Create particle effect at click location relative to the page
+             const x = event.clientX;
+             const y = event.clientY;
+             for (let i=0; i<3; i++) createParticle(x, y, 'growth'); // 3 particles
+
+             checkStageProgression();
+             updateUI();
+         }
+
+        function checkStageProgression() {
+             if (plant.stageIndex < plantStages.length - 1) {
+                 const nextStage = plantStages[plant.stageIndex + 1];
+                 if (plant.growth >= nextStage.growthThreshold) {
+                     plant.stageIndex++;
+                     const newStageInfo = plantStages[plant.stageIndex];
+                     addLogMessage(`植物が ${newStageInfo.name} に成長しました！`, "success");
+
+                     // Update max stats based on the new stage and perks
+                     plant.maxHealth = calculateMaxStat(newStageInfo.maxHealth, 'hardy_roots');
+                     plant.maxWater = newStageInfo.maxWater; // Update max water/sun for new stage
+                     plant.maxSunlight = newStageInfo.maxSunlight;
+
+                     // Optionally heal slightly or refill stats on level up?
+                     plant.health = Math.min(plant.maxHealth, plant.health + plant.maxHealth * 0.1); // Heal 10%
+                     // Keep current water/sunlight percentages relative
+                     plant.water = Math.min(plant.maxWater, plant.water);
+                     plant.sunlight = Math.min(plant.maxSunlight, plant.sunlight);
+
+
+                     // Check if this is the final stage (maturity)
+                     if (plant.stageIndex === plantStages.length - 1) {
+                         plantMatured();
+                     }
+                 }
+             }
+         }
+
+         function triggerRandomEvent() {
+            // Don't trigger event if already one active (like pest)
+             if (currentPest) return;
+
+             const pestResistance = getPerkEffect('pest_resistance');
+             const basePestChance = 0.05; // 5% chance per tick
+             const actualPestChance = basePestChance * (1 - pestResistance);
+
+             const randomValue = Math.random();
+
+             if (randomValue < actualPestChance) {
+                 // Trigger Pest Event
+                 currentPest = { type: 'アブラムシ', health: 5 + plant.stageIndex * 5 }; // Scale pest health
+                 addLogMessage(`害虫(${currentPest.type})が現れた！ 駆除してください！`, 'danger');
+                 updateUI(); // Show pest button
+             } else if (randomValue < actualPestChance + 0.03) { // ~3% chance for growth spurt
+                 const growthBoost = 10 + plant.stageIndex * 5;
+                 plant.growth += growthBoost;
+                 addLogMessage(`成長期！ 成長ポイント +${growthBoost}`, 'event');
+                 checkStageProgression();
+             } else if (randomValue < actualPestChance + 0.06) { // ~3% chance for rain
+                 const waterBoost = 20 + plant.stageIndex * 10;
+                 plant.water = Math.min(plant.maxWater, plant.water + waterBoost);
+                 addLogMessage(`恵みの雨！ 水分 +${waterBoost}`, 'event');
+             }
+             // Add more events: Heatwave (faster water drain), Perfect Sunlight, etc.
+         }
+
+         function handlePestClick() {
+             if (!currentPest || isGameOver) return;
+
+             currentPest.health -= 1; // Click deals 1 damage to pest
+             addLogMessage(`害虫にダメージ！ 残りHP: ${currentPest.health}`, 'warning');
+
+             if (currentPest.health <= 0) {
+                 addLogMessage(`害虫(${currentPest.type})を駆除しました！`, 'success');
+                 currentPest = null;
+                 updateUI(); // Hide pest button
+             }
+         }
+
+
+         function gameLoopTick() {
+             if (isGameOver) return;
+
+             // --- Passive Resource Depletion ---
+             const waterEfficiency = getPerkEffect('water_efficiency');
+             const sunAbsorption = getPerkEffect('sun_absorption');
+
+             // Base depletion rates (can scale with stage)
+             let waterDrain = (1 + plant.stageIndex * 0.1) * (1 - waterEfficiency);
+             let sunDrain = (1 + plant.stageIndex * 0.1) * (1 - sunAbsorption);
+
+             plant.water = Math.max(0, plant.water - waterDrain);
+             plant.sunlight = Math.max(0, plant.sunlight - sunDrain);
+
+             // --- Passive Growth & Health ---
+             let healthChange = 0;
+             let growthRate = 0;
+
+             // Conditions for growth
+             if (plant.water > plant.maxWater * 0.3 && plant.sunlight > plant.maxSunlight * 0.3) {
+                // Base growth rate (can scale with stage) + bonus for optimal conditions
+                 growthRate = 0.5 + plant.stageIndex * 0.1;
+                 if(plant.water > plant.maxWater * 0.7 && plant.sunlight > plant.maxSunlight * 0.7) {
+                     growthRate *= 1.5; // Bonus for being well cared for
+                 }
+             }
+
+            // Conditions for health loss
+             if (plant.water <= 0 || plant.sunlight <= 0) {
+                 healthChange = -2 - plant.stageIndex * 0.5; // Significant health loss if completely dry/dark
+                 addLogMessage("水分または日光が不足し、枯れ始めています！", "danger");
+             } else if (plant.water < plant.maxWater * 0.15) {
+                 healthChange = -0.5 - plant.stageIndex * 0.1;
+                 addLogMessage("水分が非常に少ないです。", "warning");
+             } else if (plant.sunlight < plant.maxSunlight * 0.15) {
+                 healthChange = -0.5 - plant.stageIndex * 0.1;
+                 addLogMessage("日光が非常に少ないです。", "warning");
+             }
+
+            // Health loss from active pests
+             if (currentPest) {
+                 const pestDamage = 1 + plant.stageIndex * 0.2; // Pest damage scales slightly
+                 healthChange -= pestDamage;
+                 addLogMessage(`害虫が植物を傷つけている！ (-${pestDamage.toFixed(1)} HP)`, 'danger');
+             }
+
+            // Apply changes
+             plant.health = Math.max(0, plant.health + healthChange);
+             plant.growth += growthRate;
+
+             // Check for game over
+             if (plant.health <= 0) {
+                 gameOver();
+                 return; // Stop further processing this tick
+             }
+
+             // Check for stage progression from passive growth
+             checkStageProgression();
+
+             // Trigger random events occasionally
+             if (Math.random() < 0.1) { // 10% chance per second to check for an event
+                 triggerRandomEvent();
+             }
+
+             updateUI();
+         }
+
+        function plantMatured() {
+            if (isGameOver) return; // Prevent triggering multiple times
+             isGameOver = true;
+             clearInterval(gameLoopInterval);
+             gameLoopInterval = null;
+
+             const pointsEarned = 50 + plant.stageIndex * 20 + Math.floor(plant.growth / 10); // Example point calculation
+             perkPoints += pointsEarned;
+             addLogMessage(`おめでとうございます！ 植物が完全に成熟しました！ ${pointsEarned} パークポイント獲得！`, "success");
+             saveGameState();
+             updateUI();
+             populatePerksModal(); // Update modal with new points
+             plantVisual.textContent = plantStages[plantStages.length - 1].visual; // Ensure final visual is shown
+             plantVisual.classList.remove('plant-wilting', 'plant-dying');
+             plantVisual.classList.add('plant-healthy'); // Look healthy at the end
+             plantStatusMessage.textContent = "立派に育ちました！";
+             plantStatusMessage.style.color = '#2ecc71'; // Green
+        }
+
+
+        function gameOver() {
+             if (isGameOver) return; // Prevent triggering multiple times
+             isGameOver = true;
+             clearInterval(gameLoopInterval);
+             gameLoopInterval = null;
+             plant.health = 0; // Ensure health is 0
+
+             // Award some points based on how far the plant got
+             const pointsEarned = Math.floor(plant.growth / 20) + plant.stageIndex * 5;
+             perkPoints += pointsEarned;
+             addLogMessage(`植物が枯れてしまいました... ${pointsEarned} パークポイント獲得。`, "danger");
+             saveGameState();
+             updateUI();
+             populatePerksModal(); // Update modal with new points
+        }
+
+        // --- Perk System ---
+
+         function populatePerksModal() {
+             perksListContainer.innerHTML = ''; // Clear existing perks
+
+             availablePerks.forEach(perk => {
+                 const level = getPerkLevel(perk.id);
+                 const isMaxLevel = level >= perk.maxLevel;
+                 const currentCost = isMaxLevel ? Infinity : perk.cost[level];
+                 const canAfford = perkPoints >= currentCost;
+
+                 const perkDiv = document.createElement('div');
+                 perkDiv.className = 'border p-3 rounded-lg bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2';
+
+                 const infoDiv = document.createElement('div');
+                 infoDiv.innerHTML = `
+                     <h4 class="font-semibold text-md text-purple-700">${perk.name} (Lv ${level}/${perk.maxLevel})</h4>
+                     <p class="text-sm text-gray-600">${perk.description.replace('(最大5回)', '')}</p>
+                 `;
+
+                 const actionDiv = document.createElement('div');
+                 actionDiv.className = 'flex flex-col items-end w-full sm:w-auto mt-2 sm:mt-0';
+
+                 const costSpan = document.createElement('span');
+                 costSpan.className = 'text-sm text-gray-500 mb-1';
+                 costSpan.innerHTML = isMaxLevel ? '最大レベル' : `コスト: ${currentCost} <i class="fas fa-star text-yellow-500"></i>`;
+
+                 const buyButton = document.createElement('button');
+                 buyButton.className = 'perk-button bg-green-500 hover:bg-green-600 text-white text-sm font-bold py-1 px-3 rounded shadow transition duration-150 ease-in-out';
+                 buyButton.textContent = isMaxLevel ? '購入済み' : '購入';
+                 buyButton.disabled = isMaxLevel || !canAfford;
+                 if (isMaxLevel) {
+                     buyButton.classList.add('purchased');
+                     buyButton.classList.replace('bg-green-500', 'bg-gray-400'); // Use a distinct "maxed" style if needed
+                     buyButton.classList.replace('hover:bg-green-600', 'hover:bg-gray-400');
+                 } else if (!canAfford) {
+                      buyButton.classList.replace('bg-green-500', 'bg-gray-400');
+                      buyButton.classList.replace('hover:bg-green-600', 'hover:bg-gray-400');
+                 }
+
+
+                 if (!isMaxLevel) {
+                     buyButton.onclick = () => buyPerk(perk.id);
+                 }
+
+                 actionDiv.appendChild(costSpan);
+                 actionDiv.appendChild(buyButton);
+
+                 perkDiv.appendChild(infoDiv);
+                 perkDiv.appendChild(actionDiv);
+                 perksListContainer.appendChild(perkDiv);
+             });
+         }
+
+        function buyPerk(perkId) {
+            const perk = availablePerks.find(p => p.id === perkId);
+            const level = getPerkLevel(perkId);
+
+            if (level >= perk.maxLevel) {
+                addLogMessage("このパークはすでに最大レベルです。", "warning");
+                return;
+            }
+
+            const cost = perk.cost[level];
+            if (perkPoints >= cost) {
+                perkPoints -= cost;
+                purchasedPerks[perkId] = level + 1;
+                addLogMessage(`${perk.name} をレベル ${level + 1} にアップグレードしました！`, "success");
+                saveGameState();
+                updateUI(); // Update points display
+                populatePerksModal(); // Refresh modal view
+            } else {
+                addLogMessage("パークポイントが足りません。", "warning");
+            }
+        }
+
+        function showPerksModal() {
+            populatePerksModal(); // Ensure it's up-to-date
+            perksModal.classList.remove('hidden');
+        }
+
+        function hidePerksModal() {
+            perksModal.classList.add('hidden');
+        }
+
+        // --- Persistence ---
+
+        function saveGameState() {
+            const gameState = {
+                perkPoints: perkPoints,
+                purchasedPerks: purchasedPerks
+            };
+            localStorage.setItem('plantRogueSaveData', JSON.stringify(gameState));
+             // console.log("Game state saved:", gameState);
+        }
+
+        function loadGameState() {
+            const savedState = localStorage.getItem('plantRogueSaveData');
+            if (savedState) {
+                try {
+                    const gameState = JSON.parse(savedState);
+                    perkPoints = gameState.perkPoints || 0;
+                    purchasedPerks = gameState.purchasedPerks || {};
+                     // console.log("Game state loaded:", gameState);
+                     addLogMessage("保存されたパークデータを読み込みました。", "info");
+                } catch (e) {
+                     console.error("Error loading game state:", e);
+                     perkPoints = 0;
+                     purchasedPerks = {};
+                     addLogMessage("セーブデータの読み込みに失敗しました。", "danger");
+                     localStorage.removeItem('plantRogueSaveData'); // Clear corrupted data
+                }
+            } else {
+                // Initialize if no save data found
+                perkPoints = 0;
+                purchasedPerks = {};
+                 // console.log("No save data found, initializing.");
+            }
+             // Update UI immediately after loading
+            updateUI();
+             populatePerksModal();
+        }
+
+
+        // --- Event Listeners ---
+        waterButton.addEventListener('click', waterPlant);
+        sunlightButton.addEventListener('click', giveSunlight);
+        plantClickArea.addEventListener('click', clickPlant);
+        perksButton.addEventListener('click', showPerksModal);
+        closePerksModalButton.addEventListener('click', hidePerksModal);
+        newPlantButton.addEventListener('click', () => {
+            if (isGameOver) {
+                 startGame(); // Restart the game loop and initialize a new plant
+             }
+        });
+        pestButton.addEventListener('click', handlePestClick);
+
+        // Close modal if clicking outside of it
+        perksModal.addEventListener('click', (event) => {
+             if (event.target === perksModal) {
+                 hidePerksModal();
+             }
+         });
+
+
+        // --- Initial Game Start ---
+        startGame();
+
+    </script>
+
+</body>
+</html>
