@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAE MNIST Playground - Modern UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for elements not easily styled with Tailwind alone */
+        #outputCanvas {
+            image-rendering: -moz-crisp-edges; /* Firefox */
+            image-rendering: crisp-edges;     /* Modern browsers */
+            image-rendering: pixelated;       /* Ensure pixel art remains sharp */
+        }
+
+        /* Custom scrollbar for a cleaner look (optional) */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; /* slate-100 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #64748b; /* slate-500 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; /* slate-600 */
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+    <!-- Loading Message -->
+    <div id="loadingMessage" class="fixed inset-0 bg-slate-800 bg-opacity-75 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center max-w-sm mx-auto">
+            <svg class="animate-spin h-12 w-12 text-indigo-600 mx-auto mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-xl font-semibold text-slate-700">VAEモデルを読み込み中...</p>
+            <p class="text-sm text-slate-500 mt-2">素晴らしい数字が生成されるまで、もうしばらくお待ちください！</p>
+        </div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessageContainer" class="fixed bottom-4 right-4 z-50 transition-all duration-300 opacity-0 translate-y-2">
+        <div class="bg-red-50 border border-red-300 text-red-700 px-6 py-4 rounded-lg shadow-md flex items-start">
+            <svg class="h-6 w-6 text-red-500 mr-3 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+                <strong class="font-bold">エラーが発生しました</strong>
+                <span class="block text-sm" id="errorMessageText"></span>
+            </div>
+            <button class="ml-4 text-red-500 hover:text-red-700" onclick="document.getElementById('errorMessageContainer').classList.add('opacity-0', 'translate-y-2'); document.getElementById('errorMessageContainer').classList.remove('opacity-100', 'translate-y-0');">
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto max-w-6xl py-8 px-4 sm:px-6 lg:px-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-slate-900 sm:text-5xl">
+                VAE MNIST <span class="text-indigo-600">Playground</span>
+            </h1>
+            <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+                XYパッドを操作して潜在変数を調整し、手書き数字画像をリアルタイムで生成しましょう。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <!-- XY Pad Section -->
+            <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
+                <h2 class="text-2xl font-semibold text-slate-800 mb-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 mr-2 text-indigo-500">
+                        <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                    XY Pad (潜在空間)
+                </h2>
+                <p class="text-sm text-slate-500 mb-6">クリックまたはドラッグで操作します。</p>
+                <canvas id="xyPad" width="300" height="300" class="rounded-lg border-2 border-slate-300 cursor-crosshair mx-auto transition-all duration-300 ease-in-out hover:border-indigo-500 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"></canvas>
+                <div class="mt-4 text-center font-mono text-sm tracking-wider">
+                    <span class="text-slate-600">X:</span> <span id="xCoord" class="text-indigo-600 font-semibold">-</span>,
+                    <span class="text-slate-600">Y:</span> <span id="yCoord" class="text-indigo-600 font-semibold">-</span>
+                </div>
+            </div>
+
+            <!-- Generated Image Section -->
+            <div class="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
+                <h2 class="text-2xl font-semibold text-slate-800 mb-1 flex items-center">
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 mr-2 text-indigo-500">
+                        <path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clip-rule="evenodd" />
+                    </svg>
+                    生成された画像
+                </h2>
+                <p class="text-sm text-slate-500 mb-6">潜在変数から生成されたMNIST風の数字です。</p>
+                <canvas id="outputCanvas" width="280" height="280" class="rounded-lg border-2 border-slate-300 mx-auto transition-shadow duration-200 hover:shadow-lg"></canvas>
+                
+                <div class="controls mt-8 space-y-6">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label for="xSlider" class="text-sm font-medium text-slate-700">潜在変数 X</label>
+                            <span id="xSliderValue" class="text-sm font-mono text-indigo-600 font-semibold">0.00</span>
+                        </div>
+                        <input type="range" id="xSlider" min="-3" max="3" value="0" step="0.05" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                             <label for="ySlider" class="text-sm font-medium text-slate-700">潜在変数 Y</label>
+                            <span id="ySliderValue" class="text-sm font-mono text-indigo-600 font-semibold">0.00</span>
+                        </div>
+                        <input type="range" id="ySlider" min="-3" max="3" value="0" step="0.05" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                    </div>
+                    <button id="resetButton" class="w-full px-6 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150 ease-in-out shadow-md hover:shadow-lg">
+                        中央にリセット (0, 0)
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="text-center mt-12 pt-8 border-t border-slate-300">
+            <p class="text-sm text-slate-500">
+                ONNX Runtime Web を使用した VAE デコーダーデモ。
+            </p>
+             <p class="text-xs text-slate-400 mt-1">
+                UI Enhanced by AI.
+            </p>
+        </footer>
+    </div>
+
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script>
+        const xyPad = document.getElementById('xyPad');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const xCoordDisplay = document.getElementById('xCoord');
+        const yCoordDisplay = document.getElementById('yCoord');
+        const xSlider = document.getElementById('xSlider');
+        const ySlider = document.getElementById('ySlider');
+        const xSliderValue = document.getElementById('xSliderValue');
+        const ySliderValue = document.getElementById('ySliderValue');
+        const resetButton = document.getElementById('resetButton');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const errorMessageContainer = document.getElementById('errorMessageContainer');
+        const errorMessageText = document.getElementById('errorMessageText');
+
+        const xyPadCtx = xyPad.getContext('2d');
+        const outputCtx = outputCanvas.getContext('2d');
+
+        const padSize = xyPad.width;
+        const imgSize = 28; // MNIST image size
+        const outputDisplaySize = outputCanvas.width;
+
+        // 潜在空間の範囲をスライダーと合わせる
+        const latentMin = -3.0;
+        const latentMax = 3.0;
+        const latentRange = latentMax - latentMin;
+
+        let ortSession;
+        let currentLatentX = 0;
+        let currentLatentY = 0;
+        let isDragging = false;
+
+        function showLoading(show) {
+            if (show) {
+                loadingMessage.classList.remove('opacity-0');
+                loadingMessage.classList.add('opacity-100');
+            } else {
+                loadingMessage.classList.remove('opacity-100');
+                loadingMessage.classList.add('opacity-0');
+                setTimeout(() => { // Allow animation to finish before hiding
+                   if (loadingMessage.classList.contains('opacity-0')) loadingMessage.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function showError(message) {
+            errorMessageText.textContent = message;
+            errorMessageContainer.classList.remove('opacity-0', 'translate-y-2');
+            errorMessageContainer.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                 errorMessageContainer.classList.add('opacity-0', 'translate-y-2');
+                 errorMessageContainer.classList.remove('opacity-100', 'translate-y-0');
+            }, 5000); // Hide after 5 seconds
+        }
+
+
+        async function loadModel() {
+            showLoading(true);
+            try {
+                // Ensure the path to your ONNX model is correct
+                ortSession = await ort.InferenceSession.create('./vae_decoder.onnx');
+                console.log("ONNX model loaded successfully.");
+                updateFromSliders(); // Generate initial image
+            } catch (e) {
+                console.error("Failed to load ONNX model:", e);
+                showError("モデルのロードに失敗しました。コンソールで詳細を確認してください。");
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateSliderValueDisplays(x, y) {
+            xSliderValue.textContent = x.toFixed(2);
+            ySliderValue.textContent = y.toFixed(2);
+        }
+
+        async function generateImage(latentX, latentY) {
+            if (!ortSession) {
+                console.warn("ONNX session not ready.");
+                showError("ONNXセッションの準備ができていません。");
+                return;
+            }
+
+            currentLatentX = parseFloat(latentX.toFixed(4)); // Keep precision for model, but display rounded
+            currentLatentY = parseFloat(latentY.toFixed(4));
+
+            xCoordDisplay.textContent = currentLatentX.toFixed(2);
+            yCoordDisplay.textContent = currentLatentY.toFixed(2);
+
+            xSlider.value = currentLatentX;
+            ySlider.value = currentLatentY;
+            updateSliderValueDisplays(currentLatentX, currentLatentY);
+
+            const latentInput = new ort.Tensor('float32', [currentLatentX, currentLatentY], [1, 2]);
+            const feeds = { 'latent_input': latentInput };
+
+            try {
+                const results = await ortSession.run(feeds);
+                const outputTensor = results.image_output;
+                const imageData = outputTensor.data;
+                drawOutput(imageData);
+            } catch (e) {
+                console.error("Error during inference:", e);
+                showError("推論中にエラーが発生しました。");
+            }
+        }
+
+        function drawXYPad() {
+            xyPadCtx.clearRect(0, 0, padSize, padSize);
+            xyPadCtx.strokeStyle = '#cbd5e1'; // slate-300
+            
+            // Grid lines (more subtle)
+            xyPadCtx.lineWidth = 0.5;
+            const numGridLines = 10;
+            for(let i = 1; i < numGridLines; i++) {
+                const pos = (padSize / numGridLines) * i;
+                xyPadCtx.beginPath();
+                xyPadCtx.moveTo(pos, 0);
+                xyPadCtx.lineTo(pos, padSize);
+                xyPadCtx.moveTo(0, pos);
+                xyPadCtx.lineTo(padSize, pos);
+                xyPadCtx.stroke();
+            }
+            
+            // Center lines (slightly darker)
+            xyPadCtx.strokeStyle = '#94a3b8'; // slate-400
+            xyPadCtx.lineWidth = 1;
+            xyPadCtx.beginPath();
+            xyPadCtx.moveTo(padSize / 2, 0);
+            xyPadCtx.lineTo(padSize / 2, padSize);
+            xyPadCtx.moveTo(0, padSize / 2);
+            xyPadCtx.lineTo(padSize, padSize / 2);
+            xyPadCtx.stroke();
+
+            const displayX = ((currentLatentX - latentMin) / latentRange) * padSize;
+            const displayY = ((latentMax - currentLatentY) / latentRange) * padSize; // Y-axis inverted for canvas
+
+            xyPadCtx.fillStyle = 'rgb(79, 70, 229)'; // indigo-600
+            xyPadCtx.beginPath();
+            xyPadCtx.arc(displayX, displayY, 6, 0, 2 * Math.PI);
+            xyPadCtx.fill();
+            
+            // Add a subtle border to the marker
+            xyPadCtx.strokeStyle = 'white';
+            xyPadCtx.lineWidth = 1.5;
+            xyPadCtx.stroke();
+        }
+
+        function drawOutput(pixelData) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = imgSize;
+            tempCanvas.height = imgSize;
+            const tempCtx = tempCanvas.getContext('2d');
+            const canvasImageData = tempCtx.createImageData(imgSize, imgSize);
+
+            for (let i = 0; i < imgSize * imgSize; i++) {
+                const pixelValue = Math.max(0, Math.min(255, Math.floor(pixelData[i] * 255)));
+                canvasImageData.data[i * 4 + 0] = pixelValue; // R
+                canvasImageData.data[i * 4 + 1] = pixelValue; // G
+                canvasImageData.data[i * 4 + 2] = pixelValue; // B
+                canvasImageData.data[i * 4 + 3] = 255;       // Alpha
+            }
+            tempCtx.putImageData(canvasImageData, 0, 0);
+
+            outputCtx.imageSmoothingEnabled = false;
+            outputCtx.clearRect(0, 0, outputDisplaySize, outputDisplaySize);
+            outputCtx.drawImage(tempCanvas, 0, 0, imgSize, imgSize, 0, 0, outputDisplaySize, outputDisplaySize);
+
+            drawXYPad();
+        }
+
+        function handlePadInteraction(event) {
+            event.preventDefault();
+            const rect = xyPad.getBoundingClientRect();
+            let clientX = event.clientX;
+            let clientY = event.clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            }
+            
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+
+            x = Math.max(0, Math.min(padSize, x));
+            y = Math.max(0, Math.min(padSize, y));
+
+            const latentX = (x / padSize) * latentRange + latentMin;
+            const latentY = ((padSize - y) / padSize) * latentRange + latentMin; // Y-axis inverted
+
+            generateImage(latentX, latentY);
+        }
+
+        xyPad.addEventListener('mousedown', (e) => { isDragging = true; handlePadInteraction(e); });
+        xyPad.addEventListener('mousemove', (e) => { if (isDragging) { handlePadInteraction(e); } });
+        document.addEventListener('mouseup', () => { isDragging = false; }); // Listen on document to catch mouseup outside pad
+        xyPad.addEventListener('mouseleave', () => { /* No longer setting isDragging to false here to allow dragging outside and back in */ });
+        
+        xyPad.addEventListener('touchstart', (e) => { isDragging = true; handlePadInteraction(e); }, { passive: false });
+        xyPad.addEventListener('touchmove', (e) => { if (isDragging) { handlePadInteraction(e); } }, { passive: false });
+        document.addEventListener('touchend', () => { isDragging = false; });
+
+
+        function updateFromSliders() {
+            const latentX = parseFloat(xSlider.value);
+            const latentY = parseFloat(ySlider.value);
+            generateImage(latentX, latentY);
+        }
+
+        xSlider.addEventListener('input', updateFromSliders);
+        ySlider.addEventListener('input', updateFromSliders);
+
+        resetButton.addEventListener('click', () => {
+            generateImage(0, 0);
+        });
+
+        // Initial setup
+        loadingMessage.style.display = 'flex'; // Ensure it's visible before JS runs fully
+        loadModel();
+        drawXYPad(); // Initial pad drawing (point will be at 0,0 or last known)
+        updateSliderValueDisplays(currentLatentX, currentLatentY); // Init slider values
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>植物育成アクアリウム - ライト版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom styles - Aquarium Theme (Simplified) */
+        body {
+            font-family: 'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #a5f3fc, #67e8f9, #22d3ee); /* Water gradient */
+            color: #0e7490;
+        }
+        .game-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            background: rgba(255, 255, 255, 0.05); /* Very subtle overlay */
+        }
+        .left-panel {
+            width: 350px;
+            min-width: 300px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            background-color: rgba(199, 244, 255, 0.88); /* Slightly more opaque */
+            border-right: 2px solid #67e8f9;
+            overflow-y: auto;
+            backdrop-filter: blur(4px); /* Slightly less blur */
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .right-panel {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: transparent;
+        }
+        #playground {
+            border: 2px solid #22d3ee; /* Slightly thinner border */
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(14, 116, 144, 0.25);
+            overflow: hidden;
+             background: #dcfce7; /* Default fallback background for canvas area */
+        }
+        .panel-section {
+            margin-bottom: 0.8rem; /* Slightly less margin */
+            padding: 0.6rem;
+            background-color: rgba(224, 242, 254, 0.92);
+            border-radius: 6px;
+            border: 1px solid #a5f3fc;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        }
+        .panel-title {
+            font-size: 1.05rem; /* Slightly smaller title */
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #0891b2;
+            border-bottom: 1px solid #a5f3fc;
+            padding-bottom: 0.25rem;
+        }
+        button {
+            transition: all 0.15s ease-in-out; /* Faster transition */
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(0px);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        button:disabled {
+            cursor: not-allowed;
+            filter: grayscale(60%);
+            opacity: 0.7;
+        }
+         /* Button specific styles */
+         .btn-buy { background-color: #22d3ee; color: #083344; font-weight: 500; }
+         .btn-buy:hover:not(:disabled) { background-color: #06b6d4; }
+         .btn-synth { background-color: #a855f7; color: white; font-weight: 500;}
+         .btn-synth:hover:not(:disabled) { background-color: #9333ea; }
+         .btn-perk { background-color: #3b82f6; color: white; font-weight: 500;}
+         .btn-perk:hover:not(:disabled) { background-color: #2563eb; }
+
+        .seed-item, .inventory-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0.3rem;
+            border-bottom: 1px dashed #a5f3fc;
+            font-size: 0.88rem; /* Slightly smaller text */
+            transition: background-color 0.15s ease;
+            border-radius: 3px;
+        }
+         .seed-item:hover, .inventory-item:hover {
+            background-color: rgba(165, 243, 252, 0.4);
+         }
+        .seed-item:last-child, .inventory-item:last-child { border-bottom: none; }
+
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 160px; background-color: #0e7490; color: #f0f9ff; text-align: center;
+            border-radius: 5px; padding: 5px 8px; position: absolute; z-index: 50; bottom: 125%; left: 50%;
+            margin-left: -80px; opacity: 0; transition: opacity 0.2s; font-size: 0.78rem; pointer-events: none;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 0.95; }
+
+        .selected-seed {
+            background-color: #67e8f9 !important;
+            font-weight: 600; /* Bold */
+            outline: 1px solid #0e7490;
+            box-shadow: 0 0 5px rgba(14, 116, 144, 0.4);
+        }
+
+        /* Synthesis styles */
+        .synthesis-slots { display: flex; justify-content: space-around; align-items: center; margin: 8px 0; }
+        .synthesis-slot {
+            width: 55px; height: 55px; border: 2px dashed #a5f3fc; border-radius: 50%; display: flex;
+            justify-content: center; align-items: center; background-color: rgba(255, 255, 255, 0.75);
+            font-size: 0.75rem; color: #0891b2; cursor: pointer; text-align: center; position: relative;
+            transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+        }
+         .synthesis-slot:hover { background-color: #a5f3fc; border-color: #22d3ee; transform: scale(1.03); }
+         .synthesis-slot.filled { border-style: solid; border-color: #0e7490; background-color: #cffafe; cursor: pointer; }
+         .synthesis-slot .slot-text { font-size: 0.7rem; color: #155e75; }
+
+        /* Perk styles */
+        .perk-item {
+             display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.3rem; font-size: 0.88rem;
+             background-color: rgba(59, 130, 246, 0.15); border: 1px solid #93c5fd; border-radius: 4px;
+             margin-bottom: 0.25rem; color: #1e40af;
+        }
+        .perk-item i { color: #3b82f6; }
+
+        /* Notification styles */
+         #notification-area {
+            position: fixed; bottom: 15px; right: 15px; z-index: 1000; display: flex; flex-direction: column-reverse;
+            gap: 8px; max-width: 300px;
+         }
+         .notification {
+            padding: 10px 15px; border-radius: 6px; color: white; font-weight: 500; font-size: 0.85rem;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2); opacity: 0; transform: translateX(100%);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+         }
+          .notification.show { opacity: 0.95; transform: translateX(0%); }
+         .notification.success { background: linear-gradient(to right, #10b981, #34d399); }
+         .notification.error { background: linear-gradient(to right, #ef4444, #f87171); }
+         .notification.info { background: linear-gradient(to right, #3b82f6, #60a5fa); }
+
+         #get-perk-button:not(:disabled) { animation: subtle-pulse 2.5s infinite ease-in-out; }
+         @keyframes subtle-pulse {
+             0%, 100% { opacity: 1; transform: scale(1); }
+             50% { opacity: .9; transform: scale(1.02); } /* Smaller scale */
+         }
+
+         /* Scrollbar styling - Keep simple */
+        .left-panel::-webkit-scrollbar { width: 6px; }
+        .left-panel::-webkit-scrollbar-track { background: rgba(165, 243, 252, 0.2); }
+        .left-panel::-webkit-scrollbar-thumb { background-color: #67e8f9; border-radius: 3px; }
+        .left-panel::-webkit-scrollbar-thumb:hover { background-color: #22d3ee; }
+        .max-h-48::-webkit-scrollbar, .max-h-40::-webkit-scrollbar { width: 5px; }
+        .max-h-48::-webkit-scrollbar-track, .max-h-40::-webkit-scrollbar-track { background: rgba(165, 243, 252, 0.15); }
+        .max-h-48::-webkit-scrollbar-thumb, .max-h-40::-webkit-scrollbar-thumb { background-color: #99f6e4; border-radius: 3px; }
+         .max-h-48::-webkit-scrollbar-thumb:hover, .max-h-40::-webkit-scrollbar-thumb:hover { background-color: #5eead4; }
+
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Left Panel: UI Controls -->
+        <div class="left-panel">
+            <h1 class="text-xl font-bold text-center mb-3 text-cyan-700"><i class="fas fa-water mr-1"></i>植物アクアリウム<span class="text-xs font-normal"> (ライト版)</span></h1>
+
+            <!-- Stats -->
+            <div class="panel-section">
+                <h2 class="panel-title"><i class="fas fa-chart-pie mr-1 text-cyan-600"></i>ステータス</h2>
+                <div class="flex justify-between items-center text-base mb-1"> <!-- Slightly larger text -->
+                    <span><i class="fas fa-coins text-yellow-400 mr-1"></i>所持金:</span>
+                    <span id="money" class="font-bold">100</span>
+                </div>
+                 <div class="flex justify-between items-center text-xs mt-1">
+                    <span><i class="fas fa-leaf text-green-500 mr-1"></i>総収穫数:</span>
+                    <span id="totalHarvests" class="font-bold">0</span>
+                </div>
+                 <div class="flex justify-between items-center text-xs mt-1">
+                    <span><i class="fas fa-flask text-purple-500 mr-1"></i>合成回数:</span>
+                    <span id="totalSyntheses" class="font-bold">0</span>
+                </div>
+            </div>
+
+            <!-- Shop -->
+            <div class="panel-section">
+                <h2 class="panel-title"><i class="fas fa-store mr-1 text-cyan-600"></i>種ショップ</h2>
+                <div id="shop-seeds" class="space-y-px max-h-48 overflow-y-auto pr-1"> <!-- Reduced spacing -->
+                    <!-- Seed items will be injected here by JS -->
+                </div>
+            </div>
+
+            <!-- Inventory -->
+            <div class="panel-section">
+                <h2 class="panel-title"><i class="fas fa-box-open mr-1 text-cyan-600"></i>インベントリ</h2>
+                 <p class="text-xs text-cyan-700 mb-1">種を選択し、右の水槽内をクリック。<br><kbd class="bg-white/50 px-1 rounded border border-gray-300 text-xs">Shift</kbd>+クリックで複数(最大5個)植えます。</p>
+                <div id="inventory-seeds" class="space-y-px max-h-48 overflow-y-auto pr-1">
+                    <!-- Inventory items will be injected here by JS -->
+                </div>
+            </div>
+
+             <!-- Synthesis -->
+            <div class="panel-section">
+                <h2 class="panel-title"><i class="fas fa-magic mr-1 text-purple-500"></i>種の合成</h2>
+                 <p class="text-xs text-cyan-700 mb-1">種をドラッグ＆ドロップ</p>
+                 <div class="synthesis-slots">
+                     <div id="synth-slot-1" class="synthesis-slot" data-slot="1" onclick="handleSlotClick(1)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 1)"><span class="slot-text">1</span></div>
+                     <span class="text-lg font-bold text-cyan-600 mx-1">+</span>
+                     <div id="synth-slot-2" class="synthesis-slot" data-slot="2" onclick="handleSlotClick(2)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="drop(event, 2)"><span class="slot-text">2</span></div>
+                 </div>
+                 <button id="synthesize-button" onclick="synthesizeSeeds()" class="w-full mt-2 btn-synth text-white font-bold py-1 px-3 text-sm disabled:opacity-60" disabled>
+                     <i class="fas fa-magic mr-1"></i> 合成
+                 </button>
+                 <div id="synthesis-result" class="synthesis-result text-cyan-700 text-sm mt-1"></div>
+            </div>
+
+             <!-- Perks/Upgrades -->
+            <div class="panel-section">
+                <h2 class="panel-title"><i class="fas fa-star mr-1 text-blue-500"></i>パーク</h2>
+                 <div class="flex justify-between items-center mb-1 text-xs text-cyan-800">
+                    <span>獲得チャンス: <span id="perk-offers" class="font-bold">0</span> 回</span>
+                    <span>コスト: <span id="perk-cost" class="font-bold">100</span> <i class="fas fa-coins text-yellow-400"></i></span>
+                 </div>
+                <div id="perks-list" class="space-y-px max-h-40 overflow-y-auto pr-1 mb-1">
+                     <p class="text-xs text-cyan-600 italic" id="perks-placeholder">パーク未獲得</p>
+                    <!-- Perks will be listed here -->
+                </div>
+                <button id="get-perk-button" onclick="offerPerkChoice()" class="w-full btn-perk text-white font-bold py-1 px-3 text-sm disabled:opacity-60 disabled:animate-none">
+                     <i class="fas fa-gift mr-1"></i> パーク獲得
+                 </button>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: p5.js Playground -->
+        <div class="right-panel">
+            <div id="playground"></div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notification-area"></div>
+
+    <script>
+        // --- Game State (Remains largely the same) ---
+        let gameState = {
+            money: 100, totalHarvests: 0, totalSyntheses: 0,
+            plants: [], inventorySeeds: [], selectedSeedId: null,
+            nextPlantId: 0, nextSeedInstanceId: 0,
+            synthesisSlots: { 1: null, 2: null }, activePerks: [],
+            perkOffersAvailable: 0, perkCost: 100, lastUpdate: Date.now(),
+            harvestsSinceLastPerkOffer: 0,
+        };
+
+        // --- Seed Definitions (Simplified Visuals) ---
+        // Focus on making most things look like simple grass/lines
+        const SEED_TYPES = {
+            'aqua_sprout': { name: "アクアの芽", description: "基本的な水草", cost: 5, growthTime: 8, sellPrice: 8, maxHeight: 60, color: [100, 200, 100], rarity: 1, visualType: 'grass' },
+            'waving_grass': { name: "ゆらめき草", description: "流れになびく細い葉", cost: 12, growthTime: 12, sellPrice: 20, maxHeight: 90, color: [144, 238, 144], rarity: 1, visualType: 'grass' },
+            'coral_bloom': { name: "コーラル草", description: "少し赤みがかった草", cost: 30, growthTime: 18, sellPrice: 50, maxHeight: 70, color: [200, 130, 100], rarity: 2, visualType: 'grass' }, // Simplified visual
+            'pearl_moss': { name: "パール草", description: "白っぽい小さな草", cost: 60, growthTime: 25, sellPrice: 90, maxHeight: 40, color: [200, 230, 255], rarity: 3, visualType: 'grass_short' }, // Simplified visual
+            'anemone_crest': { name: "アネモネ草", description: "紫がかった長めの草", cost: 100, growthTime: 22, sellPrice: 160, maxHeight: 100, color: [180, 140, 255], rarity: 4, visualType: 'grass_long' }, // Simplified visual
+            'crystal_kelp': { name: "クリスタル草", description: "青白く光る背の高い草", cost: 200, growthTime: 40, sellPrice: 350, maxHeight: 180, color: [137, 207, 240], rarity: 5, visualType: 'grass_glowing' } // Simplified visual
+        };
+
+        // --- Perk Definitions (No change needed) ---
+         const PERK_POOL = [
+             { id: 'faster_growth_1', name: "水中ブースト I", description: "成長速度 +15%", effect: { type: 'growth_rate_multiplier', value: 1.15 } },
+             { id: 'higher_yield_1', name: "豊かな潮流 I", description: "売却価格 +15%", effect: { type: 'sell_price_multiplier', value: 1.15 } },
+             { id: 'cheaper_seeds_1', name: "目利きの漁師 I", description: "種価格 -10%", effect: { type: 'shop_cost_multiplier', value: 0.9 } },
+             { id: 'synthesis_boost_1', name: "サンゴ礁の秘密 I", description: "レア合成率UP(小)", effect: { type: 'synthesis_luck', value: 1.1 } },
+             { id: 'bonus_cash_harvest', name: "泡立つボーナス", description: "収穫時稀に+5G", effect: { type: 'harvest_bonus_cash', value: 5, chance: 0.1 } },
+             { id: 'faster_growth_2', name: "水中ブースト II", description: "成長速度 +30%(I->II)", effect: { type: 'growth_rate_multiplier', value: 1.30 }, replaces: 'faster_growth_1' },
+             { id: 'higher_yield_2', name: "豊かな潮流 II", description: "売却価格 +30%(I->II)", effect: { type: 'sell_price_multiplier', value: 1.30 }, replaces: 'higher_yield_1' },
+             { id: 'synthesis_boost_2', name: "サンゴ礁の秘密 II", description: "レア合成率UP(中)(I->II)", effect: { type: 'synthesis_luck', value: 1.25 }, replaces: 'synthesis_boost_1' },
+             { id: 'auto_clicker_1', name: "自動トリミング", description: "稀に自動収穫", effect: { type: 'auto_harvest', chance: 0.001 } },
+             { id: 'oxygenator', name: "酸素供給器", description: "最大身長 +10%", effect: { type: 'max_height_multiplier', value: 1.1 } },
+        ];
+
+        // --- Synthesis Recipes (No change needed) ---
+         const SYNTHESIS_RECIPES = {
+            'aqua_sprout,aqua_sprout': [{ result: 'waving_grass', chance: 0.8 }, { result: 'aqua_sprout', chance: 0.2 }],
+            'aqua_sprout,waving_grass': [{ result: 'coral_bloom', chance: 0.4 }, { result: 'waving_grass', chance: 0.6 }],
+            'waving_grass,waving_grass': [{ result: 'coral_bloom', chance: 0.6 }, { result: 'waving_grass', chance: 0.4 }],
+            'aqua_sprout,coral_bloom': [{ result: 'pearl_moss', chance: 0.2 }, { result: 'coral_bloom', chance: 0.8 }],
+            'waving_grass,coral_bloom': [{ result: 'pearl_moss', chance: 0.3 }, { result: 'anemone_crest', chance: 0.1 }, { result: 'coral_bloom', chance: 0.6 }],
+            'coral_bloom,coral_bloom': [{ result: 'anemone_crest', chance: 0.4 }, { result: 'pearl_moss', chance: 0.3 }, { result: 'coral_bloom', chance: 0.3 }],
+            'pearl_moss,coral_bloom': [{ result: 'anemone_crest', chance: 0.5 }, { result: 'pearl_moss', chance: 0.5 }],
+            'pearl_moss,pearl_moss': [{ result: 'crystal_kelp', chance: 0.1 }, { result: 'anemone_crest', chance: 0.6 }, { result: 'pearl_moss', chance: 0.3 }],
+            'anemone_crest,pearl_moss': [{ result: 'crystal_kelp', chance: 0.3 }, { result: 'anemone_crest', chance: 0.7 }],
+            'anemone_crest,anemone_crest': [{ result: 'crystal_kelp', chance: 0.5 }, { result: 'anemone_crest', chance: 0.5 }],
+            'crystal_kelp,anemone_crest': [{ result: 'crystal_kelp', chance: 0.8 }, { result: 'anemone_crest', chance: 0.2 }],
+            'crystal_kelp,crystal_kelp': [{ result: 'crystal_kelp', chance: 0.9 }, { result: 'anemone_crest', chance: 0.1 }],
+        };
+
+        // --- UI Update Functions (Minor tweaks for performance/clarity) ---
+        function updateMoneyDisplay() {
+            document.getElementById('money').textContent = gameState.money;
+            updateShopDisplay(); // Update shop costs/buttons
+            updatePerkButtonState(); // Update perk cost/button
+        }
+
+        function updateTotalHarvestsDisplay() {
+             document.getElementById('totalHarvests').textContent = gameState.totalHarvests;
+             document.getElementById('perk-offers').textContent = gameState.perkOffersAvailable;
+             // Perk offer logic remains the same
+             if (gameState.harvestsSinceLastPerkOffer >= 5) {
+                 gameState.perkOffersAvailable++;
+                 gameState.harvestsSinceLastPerkOffer = 0;
+                 showNotification(`新しいパーク獲得チャンス！ (${gameState.perkOffersAvailable} 回分)`, 'info');
+                 updatePerkButtonState();
+             }
+        }
+
+         function updateTotalSynthesesDisplay() { document.getElementById('totalSyntheses').textContent = gameState.totalSyntheses; }
+
+         function updatePerkButtonState() {
+             const btn = document.getElementById('get-perk-button');
+             const perkCostSpan = document.getElementById('perk-cost');
+             const perkOffersSpan = document.getElementById('perk-offers');
+             perkCostSpan.textContent = gameState.perkCost;
+             perkOffersSpan.textContent = gameState.perkOffersAvailable;
+             const canAfford = gameState.money >= gameState.perkCost;
+             const hasOffers = gameState.perkOffersAvailable > 0;
+             btn.disabled = !(canAfford && hasOffers);
+             perkCostSpan.classList.toggle('text-red-500', !canAfford && hasOffers);
+             perkCostSpan.classList.toggle('font-bold', !canAfford && hasOffers);
+             btn.style.animation = btn.disabled ? 'none' : 'subtle-pulse 2.5s infinite ease-in-out';
+         }
+
+        function getModifiedStat(baseValue, multiplierType) {
+            let value = baseValue;
+            // Cache perk lookups? Minor optimization, maybe not needed yet.
+            const multiplierPerk = gameState.activePerks.find(p => p.effect.type === multiplierType);
+            if (multiplierPerk) value *= multiplierPerk.effect.value;
+            return value;
+        }
+        function getModifiedShopCost(key) { return Math.max(1, Math.round(getModifiedStat(SEED_TYPES[key].cost, 'shop_cost_multiplier'))); }
+        function getModifiedSellPrice(key) { return Math.round(getModifiedStat(SEED_TYPES[key].sellPrice, 'sell_price_multiplier')); }
+        function getModifiedMaxHeight(key) { return Math.round(getModifiedStat(SEED_TYPES[key].maxHeight, 'max_height_multiplier')); }
+
+        // Update Shop Display (Keep efficient)
+        function updateShopDisplay() {
+            const shopDiv = document.getElementById('shop-seeds');
+            const frag = document.createDocumentFragment(); // Use fragment for better performance
+            Object.keys(SEED_TYPES).forEach(key => {
+                const seed = SEED_TYPES[key];
+                const currentCost = getModifiedShopCost(key);
+                const item = document.createElement('div');
+                item.className = 'seed-item';
+                const sellPrice = getModifiedSellPrice(key);
+                item.innerHTML = `
+                    <span class="flex items-center">
+                        <i class="fas fa-seedling fa-xs mr-1.5" style="color: rgb(${seed.color.join(',')});"></i>
+                        <span class="font-medium tooltip text-cyan-900">${seed.name} <span class="text-gray-500 text-xs">(R${seed.rarity})</span>
+                           <span class="tooltiptext">${seed.description}<br>成長:${seed.growthTime}s 売:${sellPrice}G 高:${getModifiedMaxHeight(key)}px</span>
+                        </span>
+                    </span>
+                    <button onclick="buySeed('${key}')" class="btn-buy text-xs font-bold py-0.5 px-1.5 disabled:opacity-60" ${gameState.money < currentCost ? 'disabled' : ''}>
+                        <i class="fas fa-coins fa-xs"></i> ${currentCost}G
+                    </button>
+                `;
+                frag.appendChild(item);
+            });
+            shopDiv.innerHTML = ''; // Clear only once
+            shopDiv.appendChild(frag); // Append fragment
+        }
+
+        // Update Inventory Display (Grouped)
+         function updateInventoryDisplay() {
+             const inventoryDiv = document.getElementById('inventory-seeds');
+             const frag = document.createDocumentFragment();
+             inventoryDiv.innerHTML = ''; // Clear existing
+
+             const seedGroups = gameState.inventorySeeds.reduce((acc, seed) => {
+                acc[seed.type] = (acc[seed.type] || { count: 0, ids: [] });
+                acc[seed.type].count++;
+                acc[seed.type].ids.push(seed.id);
+                return acc;
+             }, {});
+
+             if (Object.keys(seedGroups).length === 0) {
+                 inventoryDiv.innerHTML = '<p class="text-xs text-cyan-600 italic px-1">種はありません</p>';
+                 return;
+             }
+
+             Object.keys(seedGroups).forEach(type => {
+                 const seedType = SEED_TYPES[type];
+                 const group = seedGroups[type];
+                 const firstAvailableId = group.ids.find(id => id !== gameState.synthesisSlots[1] && id !== gameState.synthesisSlots[2]);
+
+                 const item = document.createElement('div');
+                 item.draggable = firstAvailableId !== undefined; // Only draggable if available
+                 item.ondragstart = (event) => { if(firstAvailableId) drag(event, firstAvailableId); };
+                 item.id = `inv-seed-group-${type}`;
+
+                 const isSelected = gameState.selectedSeedId !== null && group.ids.includes(gameState.selectedSeedId);
+                 item.className = `inventory-item cursor-pointer ${isSelected ? 'selected-seed' : ''}`;
+                 item.onclick = () => { if(firstAvailableId) selectSeedForPlanting(firstAvailableId); };
+
+                 item.innerHTML = `
+                     <span class="flex items-center">
+                         <i class="fas fa-seedling fa-xs mr-1.5" style="color: rgb(${seedType.color.join(',')});"></i>
+                         <span class="font-medium tooltip text-cyan-900">${seedType.name} <span class="text-gray-500 text-xs">(R${seedType.rarity})</span>
+                             <span class="tooltiptext">${seedType.description}<br>成長:${seedType.growthTime}s 売:${getModifiedSellPrice(type)}G 高:${getModifiedMaxHeight(type)}px</span>
+                         </span>
+                     </span>
+                     <span class="text-xs font-semibold text-cyan-700 bg-cyan-100/80 px-1.5 py-0.5 rounded-full">x ${group.count}</span>
+                 `;
+                 frag.appendChild(item);
+             });
+             inventoryDiv.appendChild(frag);
+             updateSynthesisSlots(); // Ensure synth slots reflect inventory
+         }
+
+        // Update Perks Display
+        function updatePerksDisplay() {
+            const perksListDiv = document.getElementById('perks-list');
+            const placeholder = document.getElementById('perks-placeholder');
+            placeholder.style.display = gameState.activePerks.length === 0 ? 'block' : 'none';
+            perksListDiv.innerHTML = ''; // Clear efficiently
+            const frag = document.createDocumentFragment();
+             gameState.activePerks.forEach(perk => {
+                 const item = document.createElement('div');
+                 item.className = 'perk-item';
+                 item.innerHTML = `
+                     <span class="font-medium tooltip">${perk.name}
+                         <span class="tooltiptext">${perk.description}</span>
+                     </span>
+                     <i class="fas fa-check-circle fa-xs"></i>
+                 `;
+                 frag.appendChild(item);
+             });
+            perksListDiv.appendChild(frag);
+            updatePerkButtonState();
+        }
+
+
+        // --- Synthesis UI Functions (Keep efficient) ---
+        function allowDrop(ev) { ev.preventDefault(); ev.target.closest('.synthesis-slot').classList.add('bg-cyan-200'); }
+        function dragLeave(ev) { ev.target.closest('.synthesis-slot').classList.remove('bg-cyan-200'); }
+        function drag(ev, seedInstanceId) { ev.dataTransfer.setData("seedInstanceId", seedInstanceId); }
+
+         function drop(ev, slotNumber) {
+           ev.preventDefault();
+           const targetSlot = ev.target.closest('.synthesis-slot');
+           targetSlot.classList.remove('bg-cyan-200');
+           const seedInstanceId = parseInt(ev.dataTransfer.getData("seedInstanceId"), 10);
+           if (isNaN(seedInstanceId)) return;
+           const seedInstance = gameState.inventorySeeds.find(s => s.id === seedInstanceId);
+           if (!seedInstance) return;
+
+           const otherSlot = slotNumber === 1 ? 2 : 1;
+           if (gameState.synthesisSlots[otherSlot] === seedInstanceId) {
+                 showNotification("その種は反対のスロットにあります。", "error"); return;
+            }
+            gameState.synthesisSlots[slotNumber] = seedInstanceId;
+            if (gameState.synthesisSlots[otherSlot] === seedInstanceId) gameState.synthesisSlots[otherSlot] = null;
+
+           updateSynthesisSlots();
+           updateInventoryDisplay();
+           checkSynthesizeButton();
+         }
+
+        function handleSlotClick(slotNumber) {
+             if (gameState.synthesisSlots[slotNumber] !== null) {
+                 gameState.synthesisSlots[slotNumber] = null;
+                 updateSynthesisSlots();
+                 updateInventoryDisplay();
+                 checkSynthesizeButton();
+                 document.getElementById('synthesis-result').textContent = '';
+             } else { /* showNotification("インベントリから種をドラッグ", "info"); */ } // Reduce notifications
+        }
+
+        function updateSynthesisSlots() {
+             for (let i = 1; i <= 2; i++) {
+                 const slotDiv = document.getElementById(`synth-slot-${i}`);
+                 const seedInstanceId = gameState.synthesisSlots[i];
+                 const seedInstance = gameState.inventorySeeds.find(s => s.id === seedInstanceId);
+                 if (seedInstance) {
+                     const seedType = SEED_TYPES[seedInstance.type];
+                     slotDiv.innerHTML = `<i class="fas fa-seedling text-xl" style="color: rgb(${seedType.color.join(',')});"></i>`;
+                     slotDiv.classList.add('filled');
+                     slotDiv.title = `${seedType.name} (クリック削除)`;
+                 } else {
+                     if (gameState.synthesisSlots[i] !== null) gameState.synthesisSlots[i] = null;
+                     slotDiv.innerHTML = `<span class="slot-text">${i}</span>`;
+                     slotDiv.classList.remove('filled');
+                     slotDiv.title = '';
+                 }
+             }
+         }
+
+        function checkSynthesizeButton() {
+            const seed1 = gameState.inventorySeeds.find(s => s.id === gameState.synthesisSlots[1]);
+            const seed2 = gameState.inventorySeeds.find(s => s.id === gameState.synthesisSlots[2]);
+            document.getElementById('synthesize-button').disabled = !(seed1 && seed2);
+        }
+
+
+        // --- Game Logic Functions (Keep efficient) ---
+        function buySeed(seedTypeKey) {
+            const seed = SEED_TYPES[seedTypeKey];
+            const currentCost = getModifiedShopCost(seedTypeKey);
+            if (gameState.money >= currentCost) {
+                gameState.money -= currentCost;
+                gameState.inventorySeeds.push({ id: gameState.nextSeedInstanceId++, type: seedTypeKey });
+                updateMoneyDisplay();
+                updateInventoryDisplay();
+                // showNotification(`${seed.name} を購入！`, 'success'); // Reduce notifications
+            } else { showNotification("お金が足りません！", "error"); }
+        }
+
+        function selectSeedForPlanting(seedInstanceId) {
+             const instance = gameState.inventorySeeds.find(s => s.id === seedInstanceId);
+             if (!instance) return;
+             const typeToSelect = instance.type;
+             const currentSelectedInstance = gameState.inventorySeeds.find(s => s.id === gameState.selectedSeedId);
+
+             if (currentSelectedInstance && currentSelectedInstance.type === typeToSelect) {
+                  gameState.selectedSeedId = null; // Deselect
+             } else {
+                 const availableInstance = gameState.inventorySeeds.find(s =>
+                       s.type === typeToSelect && s.id !== gameState.synthesisSlots[1] && s.id !== gameState.synthesisSlots[2] );
+                  if (availableInstance) { gameState.selectedSeedId = availableInstance.id; }
+                  else { showNotification("利用可能な種がありません (合成中?)", "info"); gameState.selectedSeedId = null; }
+             }
+             updateInventoryDisplay();
+        }
+
+        function executePlanting(targetX, targetY, isBulk = false) {
+             if (gameState.selectedSeedId === null) return false;
+             const selectedInstance = gameState.inventorySeeds.find(s => s.id === gameState.selectedSeedId);
+             if (!selectedInstance) { gameState.selectedSeedId = null; updateInventoryDisplay(); return false; }
+             const seedTypeKey = selectedInstance.type;
+             const seedType = SEED_TYPES[seedTypeKey];
+             const availableInstance = gameState.inventorySeeds.find(s => s.type === seedTypeKey && s.id !== gameState.synthesisSlots[1] && s.id !== gameState.synthesisSlots[2]);
+             if (!availableInstance) {
+                 if (!isBulk) showNotification(`${seedType.name} の在庫なし`, "info");
+                 gameState.selectedSeedId = null; updateInventoryDisplay(); return false;
+             }
+
+             const effectiveGrowthTime = seedType.growthTime / getModifiedStat(1, 'growth_rate_multiplier');
+             const maxHeight = getModifiedMaxHeight(seedTypeKey);
+             const newPlant = {
+                 id: gameState.nextPlantId++, type: seedTypeKey, x: targetX, y: targetY, currentHeight: 0,
+                 maxHeight: maxHeight, growthRate: maxHeight / (effectiveGrowthTime * 1000 || 1), plantedTime: Date.now(),
+                 color: [...seedType.color], isGrown: false, isHarvestable: false, visualType: seedType.visualType || 'grass',
+                 noiseOffsetX: Math.random() * 1000, noiseOffsetY: Math.random() * 1000,
+                 // Simplified structure for grass - maybe just number of blades? Draw logic handles the rest.
+                 numBlades: Math.floor(3 + Math.random() * 4), // 3-6 blades
+                 baseAngle: (Math.random() - 0.5) * (Math.PI / 16) // Slight overall lean
+             };
+             gameState.plants.push(newPlant);
+             const usedSeedIndex = gameState.inventorySeeds.findIndex(s => s.id === availableInstance.id);
+             if (usedSeedIndex !== -1) gameState.inventorySeeds.splice(usedSeedIndex, 1);
+
+             const nextAvailable = gameState.inventorySeeds.find(s => s.type === seedTypeKey && s.id !== gameState.synthesisSlots[1] && s.id !== gameState.synthesisSlots[2]);
+             gameState.selectedSeedId = nextAvailable ? nextAvailable.id : null;
+
+             updateInventoryDisplay();
+             if (!isBulk) showNotification(`${seedType.name} を植えました！`, 'success');
+             return true;
+         }
+
+         function harvestPlant(plantId, isAuto = false) {
+             const plantIndex = gameState.plants.findIndex(p => p.id === plantId);
+             if (plantIndex === -1) return;
+             const plant = gameState.plants[plantIndex];
+             if (!plant.isHarvestable) { if (!isAuto) showNotification("まだ収穫できません！", "info"); return; }
+             const seedType = SEED_TYPES[plant.type];
+             const sellPrice = getModifiedSellPrice(plant.type);
+             gameState.money += sellPrice;
+             gameState.totalHarvests++;
+             gameState.harvestsSinceLastPerkOffer++;
+             let bonusMsg = "";
+             const bonusPerk = gameState.activePerks.find(p => p.effect.type === 'harvest_bonus_cash');
+             if (bonusPerk && Math.random() < bonusPerk.effect.chance) {
+                 gameState.money += bonusPerk.effect.value;
+                 bonusMsg = ` <i class="fas fa-tint text-blue-300"></i>+${bonusPerk.effect.value}G!`;
+             }
+             gameState.plants.splice(plantIndex, 1);
+             updateMoneyDisplay();
+             updateTotalHarvestsDisplay();
+             showNotification(`${seedType.name} 収穫 <i class="fas fa-cut text-white"></i> +${sellPrice}G${bonusMsg}`, 'success');
+         }
+
+        function clearSynthesisSlots() { /* As before */ }
+        function synthesizeSeeds() { /* As before, logic is OK */
+             const seedInstance1 = gameState.inventorySeeds.find(s => s.id === gameState.synthesisSlots[1]);
+             const seedInstance2 = gameState.inventorySeeds.find(s => s.id === gameState.synthesisSlots[2]);
+             if (!seedInstance1 || !seedInstance2) {
+                  showNotification("合成元の種がありません", "error"); clearSynthesisSlots(); updateInventoryDisplay(); return;
+             }
+             const type1 = seedInstance1.type; const type2 = seedInstance2.type;
+             const originalIds = [seedInstance1.id, seedInstance2.id];
+             gameState.inventorySeeds = gameState.inventorySeeds.filter(s => s.id !== originalIds[0] && s.id !== originalIds[1]);
+
+             const combinationKey = [type1, type2].sort().join(',');
+             let recipe = SYNTHESIS_RECIPES[combinationKey];
+             let resultSeedTypeKey = null; let success = false;
+             let synthesisLuckMultiplier = getModifiedStat(1, 'synthesis_luck');
+
+             if (recipe) {
+                 const outcomes = Array.isArray(recipe) ? recipe : [recipe];
+                 let adjustedOutcomes = outcomes.map(o => {
+                     let adjusted = o.chance;
+                     const rarityDiff = (SEED_TYPES[o.result]?.rarity || 1) - Math.max(SEED_TYPES[type1]?.rarity || 1, SEED_TYPES[type2]?.rarity || 1);
+                     if (rarityDiff > 0) adjusted *= (1 + (synthesisLuckMultiplier - 1) * (rarityDiff + 1));
+                     else if (rarityDiff < 0) adjusted /= synthesisLuckMultiplier;
+                     return { ...o, adjustedChance: Math.max(0.01, adjusted) };
+                 });
+                 let totalAdjustedChance = adjustedOutcomes.reduce((sum, o) => sum + o.adjustedChance, 0);
+                 let roll = Math.random() * totalAdjustedChance;
+                 for(const outcome of adjustedOutcomes) {
+                     if (roll < outcome.adjustedChance) { resultSeedTypeKey = outcome.result; success = true; break; }
+                     roll -= outcome.adjustedChance;
+                 }
+             }
+             const resultDiv = document.getElementById('synthesis-result');
+             if (success && resultSeedTypeKey && SEED_TYPES[resultSeedTypeKey]) {
+                 const newSeedData = SEED_TYPES[resultSeedTypeKey];
+                 gameState.inventorySeeds.push({ id: gameState.nextSeedInstanceId++, type: resultSeedTypeKey });
+                 resultDiv.innerHTML = `成功: <i class="fas fa-seedling fa-xs" style="color: rgb(${newSeedData.color.join(',')});"></i> ${newSeedData.name}`;
+                 resultDiv.className = 'synthesis-result text-purple-600 font-semibold text-sm mt-1';
+                 showNotification(`合成成功: ${newSeedData.name}`, 'success');
+                 gameState.totalSyntheses++; updateTotalSynthesesDisplay();
+             } else {
+                 resultDiv.innerHTML = "失敗 <i class='fas fa-sad-tear fa-xs'></i>";
+                 resultDiv.className = 'synthesis-result text-red-500 text-sm mt-1';
+                 showNotification("合成失敗...", 'error');
+             }
+             clearSynthesisSlots(); updateInventoryDisplay(); checkSynthesizeButton();
+        }
+        function offerPerkChoice() { /* As before, logic is OK */
+            if (gameState.perkOffersAvailable <= 0) { showNotification("パーク獲得チャンスなし", "info"); return; }
+            if (gameState.money < gameState.perkCost) { showNotification(`資金不足 (${gameState.perkCost}G)`, "error"); return; }
+
+            const availablePerks = PERK_POOL.filter(perk => {
+                if (gameState.activePerks.some(ap => ap.id === perk.id)) return false;
+                if (perk.replaces) return gameState.activePerks.some(ap => ap.id === perk.replaces);
+                return true;
+            });
+            if (availablePerks.length === 0) { showNotification("新しいパークはありません", "info"); return; }
+
+            const choices = []; const poolCopy = [...availablePerks]; const numChoices = Math.min(3, poolCopy.length);
+            while (choices.length < numChoices && poolCopy.length > 0) { choices.push(poolCopy.splice(Math.floor(Math.random() * poolCopy.length), 1)[0]); }
+            if (choices.length === 0) { showNotification("パーク生成エラー", "error"); return; }
+
+            let promptMessage = `パーク選択 (コスト: ${gameState.perkCost}G):\n\n`;
+            choices.forEach((perk, index) => { promptMessage += `${index + 1}: ${perk.name} - ${perk.description}\n`; });
+            promptMessage += `\n番号入力 (キャンセルは空白):`;
+            let userChoiceRaw = prompt(promptMessage);
+            if (userChoiceRaw === null || userChoiceRaw.trim() === "") { showNotification("キャンセルしました", "info"); return; }
+            let userChoiceNum = parseInt(userChoiceRaw, 10);
+            if (isNaN(userChoiceNum) || userChoiceNum < 1 || userChoiceNum > choices.length) { alert("無効な選択です。"); offerPerkChoice(); return; } // Re-prompt on invalid
+
+            const chosenPerk = choices[userChoiceNum - 1];
+            gameState.money -= gameState.perkCost; gameState.perkOffersAvailable--; gameState.perkCost = Math.round(gameState.perkCost * 1.20 + 30);
+            if (chosenPerk.replaces) {
+                 const replacedIndex = gameState.activePerks.findIndex(ap => ap.id === chosenPerk.replaces);
+                 if (replacedIndex !== -1) {
+                      showNotification(`${gameState.activePerks[replacedIndex].name} -> ${chosenPerk.name} へ更新！`, 'info');
+                      gameState.activePerks.splice(replacedIndex, 1);
+                 }
+            }
+            gameState.activePerks.push(chosenPerk);
+            showNotification(`パーク「${chosenPerk.name}」獲得！ <i class="fas fa-star"></i>`, 'success');
+            updateMoneyDisplay(); updatePerksDisplay(); updateShopDisplay(); updateInventoryDisplay(); updatePerkButtonState();
+        }
+
+
+        // --- Game Loop (Keep simple) ---
+        function gameLoop() {
+            const now = Date.now();
+            // Use fixed timestep if possible, or limit delta
+            const deltaTime = Math.min(50, now - gameState.lastUpdate); // Limit to 50ms (20fps min)
+            gameState.lastUpdate = now;
+
+            const autoHarvestPerk = gameState.activePerks.find(p => p.effect.type === 'auto_harvest');
+            let harvestedIDs = [];
+
+             // --- Grow Plants & Check Auto-Harvest ---
+             // Use simple loop for potentially better performance
+            for (let i = 0; i < gameState.plants.length; i++) {
+                const plant = gameState.plants[i];
+                 if (!plant.isGrown) {
+                    const growthRateMultiplier = getModifiedStat(1, 'growth_rate_multiplier');
+                    plant.maxHeight = getModifiedMaxHeight(plant.type); // Update in case perks changed
+                    const baseGrowthRate = SEED_TYPES[plant.type].maxHeight / (SEED_TYPES[plant.type].growthTime * 1000 || 1);
+                    const currentGrowthRate = baseGrowthRate * growthRateMultiplier;
+                    plant.currentHeight += currentGrowthRate * deltaTime;
+                    if (plant.currentHeight >= plant.maxHeight) {
+                        plant.currentHeight = plant.maxHeight;
+                        plant.isGrown = true;
+                        if (!plant.harvestTimeout) {
+                             plant.harvestTimeout = setTimeout(() => {
+                                 // Check plant still exists by ID before marking
+                                 if (gameState.plants.some(p => p.id === plant.id)) {
+                                      plant.isHarvestable = true;
+                                 }
+                                 plant.harvestTimeout = null;
+                             }, 250); // Reduced delay
+                        }
+                    }
+                } else if (plant.isHarvestable && autoHarvestPerk && Math.random() < (autoHarvestPerk.effect.chance * (deltaTime / 33.33)) ) { // Chance adjusted for approx 30fps target
+                     harvestedIDs.push(plant.id);
+                 }
+            }
+             // Process auto-harvests outside the growth loop
+             harvestedIDs.forEach(id => harvestPlant(id, true));
+        }
+
+        // --- Notifications (Keep efficient) ---
+        function showNotification(message, type = 'info', duration = 3000) { // Shorter default duration
+            const area = document.getElementById('notification-area');
+            // Limit number of notifications shown? Optional optimization.
+            if (area.children.length > 5) {
+                area.removeChild(area.lastChild); // Remove oldest if too many
+            }
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = message; // Use innerHTML for icons
+            area.insertBefore(notification, area.firstChild); // Add to top
+            requestAnimationFrame(() => { // Ensure style change happens after insertion
+                setTimeout(() => { notification.classList.add('show'); }, 10);
+            });
+            const timeoutId = setTimeout(() => {
+                 notification.classList.remove('show');
+                 notification.addEventListener('transitionend', () => {
+                     if (notification.parentNode === area) area.removeChild(notification);
+                 }, { once: true });
+            }, duration);
+             notification.onclick = () => { // Click to dismiss
+                 clearTimeout(timeoutId);
+                 notification.classList.remove('show');
+                 notification.addEventListener('transitionend', () => {
+                    if (notification.parentNode === area) area.removeChild(notification);
+                 }, { once: true });
+             };
+        }
+
+
+        // --- p5.js Sketch (SIMPLIFIED DRAWING) ---
+        let p5Instance;
+        const sketch = (p) => {
+            let canvasWidth, canvasHeight;
+            let substrateLevel;
+            let windTime = 0;
+            let bubbles = [];
+            const MAX_BUBBLES = 15; // Reduced bubble count
+
+            // Pre-calculate colors for background gradient
+            let skyColors = [];
+
+            p.setup = () => {
+                const playgroundDiv = document.getElementById('playground');
+                const availableWidth = playgroundDiv.parentElement.offsetWidth - 20; // Less padding
+                const availableHeight = playgroundDiv.parentElement.offsetHeight - 20;
+                canvasWidth = Math.max(300, Math.min(availableWidth, 900));
+                canvasHeight = Math.max(250, Math.min(availableHeight, 700));
+
+                let cnv = p.createCanvas(canvasWidth, canvasHeight);
+                cnv.parent('playground');
+                substrateLevel = canvasHeight * 0.92; // Slightly thinner substrate
+                p.frameRate(30); // Target 30 FPS
+                console.log(`p5 Canvas (Lite): ${canvasWidth}x${canvasHeight}`);
+
+                // Pre-calculate sky gradient colors
+                let topColor = p.color(100, 180, 255);
+                let bottomColor = p.color(40, 100, 200);
+                for (let i = 0; i < canvasHeight; i++) {
+                    skyColors[i] = p.lerpColor(topColor, bottomColor, i / canvasHeight);
+                }
+
+                 // Initialize bubbles
+                 for (let i = 0; i < MAX_BUBBLES; i++) {
+                     bubbles.push(new Bubble(p, canvasWidth, canvasHeight, substrateLevel));
+                 }
+            };
+
+            p.draw = () => {
+                // --- Draw Background (Optimized) ---
+                p.noStroke();
+                 // Draw pre-calculated gradient lines
+                for (let i = 0; i < canvasHeight; i++) {
+                     p.stroke(skyColors[i]);
+                     p.line(0, i, canvasWidth, i);
+                 }
+                 p.noStroke();
+
+
+                // --- Draw Substrate (Simplified) ---
+                let substrateColor1 = p.color(190, 170, 140);
+                let substrateColor2 = p.color(160, 140, 110);
+                // Simple gradient rect is faster than per-pixel/line texture
+                 for (let i = substrateLevel; i < canvasHeight; i++) {
+                     let inter = p.map(i, substrateLevel, canvasHeight, 0, 1);
+                     let c = p.lerpColor(substrateColor1, substrateColor2, inter);
+                     p.stroke(c);
+                     p.line(0, i, canvasWidth, i);
+                 }
+                 p.noStroke();
+
+                // --- Update and Draw Bubbles (Simplified draw) ---
+                 bubbles.forEach(bubble => {
+                     bubble.update(windTime); // Pass windTime for wobble
+                     bubble.draw();
+                 });
+
+                // Update wind/current time
+                windTime += 0.015; // Slightly faster wind/current effect
+
+                // --- Draw Plants (Simplified logic) ---
+                for(let i = 0; i < gameState.plants.length; i++){
+                    drawPlantLite(p, gameState.plants[i], windTime);
+                }
+
+                // --- Draw Planting Preview (Simple line) ---
+                 if (gameState.selectedSeedId !== null && p.mouseX > 0 && p.mouseX < canvasWidth && p.mouseY > 0 && p.mouseY < substrateLevel) {
+                     const selectedInstance = gameState.inventorySeeds.find(s => s.id === gameState.selectedSeedId);
+                     if(selectedInstance){
+                         const seedType = SEED_TYPES[selectedInstance.type];
+                         p.push();
+                         p.translate(p.mouseX, substrateLevel);
+                         p.stroke(255, 255, 255, 120); // White ghost outline
+                         p.strokeWeight(1.5);
+                         p.line(0, 0, 0, -15); // Simple vertical line ghost
+
+                         // Preview multiple ghosts if Shift is held
+                          if (p.keyIsDown(p.SHIFT)) {
+                             p.stroke(255, 255, 255, 80); // Fainter ghosts
+                             for (let i = 0; i < 4; i++) {
+                                 let offsetX = p.random(-15, 15);
+                                 p.line(offsetX, 0, offsetX, -15 + p.random(-3, 3));
+                             }
+                         }
+                         p.pop();
+                     }
+                 }
+            };
+
+            // --- Bubble Class (Simplified) ---
+            class Bubble {
+                constructor(p, w, h, ground) { this.p = p; this.canvasW = w; this.canvasH = h; this.ground = ground; this.reset(); }
+                reset() { this.x = this.p.random(this.canvasW); this.y = this.p.random(this.ground, this.canvasH); this.r = this.p.random(0.5, 2.5); this.ySpeed = this.p.random(0.4, 1.2); this.alpha = this.p.random(40, 120); this.noiseOffsetX = this.p.random(1000); }
+                update(windTime) {
+                    this.y -= this.ySpeed;
+                    // Simplified Wobble
+                    this.x += (this.p.noise(this.y * 0.08 + this.noiseOffsetX + windTime) - 0.5) * 0.6;
+                    if (this.y < -this.r) this.reset();
+                }
+                draw() {
+                    this.p.fill(230, 245, 255, this.alpha); // Slightly blueish white
+                    this.p.noStroke();
+                    this.p.ellipse(this.x, this.y, this.r * 2, this.r * 2);
+                    // No highlight for performance
+                }
+            }
+
+            // --- SIMPLIFIED drawPlantLite function ---
+            function drawPlantLite(p, plant, windTime) {
+                p.push();
+                p.translate(plant.x, substrateLevel); // Origin at base
+                p.rotate(plant.baseAngle); // Apply base lean
+
+                const growthRatio = plant.currentHeight / plant.maxHeight;
+                const currentHeight = plant.currentHeight;
+                if (currentHeight < 1) { p.pop(); return; } // Don't draw if tiny
+
+                // --- Simple Sway Calculation ---
+                // Use noise based on plant's unique offset and global wind time
+                // Apply more sway higher up the plant
+                const swaySpeed = 0.7;
+                const swayMagnitude = 0.08 + growthRatio * 0.15; // Base sway + growth dependent sway (radians)
+                let baseSwayAngle = (p.noise(plant.noiseOffsetX + windTime * swaySpeed) - 0.5) * 2 * swayMagnitude;
+
+                // --- Draw Blades (as simple lines or thin triangles) ---
+                const numBlades = plant.numBlades;
+                const bladeSpread = p.PI / 12 * growthRatio; // Blades spread more as they grow
+
+                 for (let i = 0; i < numBlades; i++) {
+                    p.push();
+                    // Angle for this blade relative to base lean
+                    let bladeAngle = p.map(i, 0, numBlades -1, -bladeSpread / 2, bladeSpread / 2) || 0;
+                    p.rotate(bladeAngle);
+
+                    // Calculate sway specific to this blade's height position (simplified)
+                    // Top sway angle depends on baseSway and blade's own noise
+                    let bladeNoise = p.noise(plant.noiseOffsetY + i * 0.5 + windTime * swaySpeed * 1.1);
+                    let topSwayAngle = baseSway + (bladeNoise - 0.5) * swayMagnitude * 0.5; // Add individual wiggle
+
+                    // --- Draw a single slightly bent line per blade ---
+                    let bladeTipX = p.sin(topSwayAngle) * currentHeight;
+                    let bladeTipY = -p.cos(topSwayAngle) * currentHeight;
+
+                    // Determine color (mostly green)
+                    let plantColor = p.color(plant.color[0], plant.color[1], plant.color[2]);
+                    // Make glowing type brighter
+                    if (plant.visualType === 'grass_glowing') {
+                        plantColor = p.lerpColor(plantColor, p.color(255), 0.3); // Mix with white
+                        p.strokeWeight(1.5 + growthRatio);
+                        p.stroke(p.red(plantColor), p.green(plantColor), p.blue(plantColor), 180 + 75 * growthRatio); // Slightly transparent glow
+                    } else {
+                         p.strokeWeight(1 + growthRatio * 1.5); // Thin lines
+                         p.stroke(p.red(plantColor)*0.8, p.green(plantColor)*0.8, p.blue(plantColor)*0.8); // Slightly dark green
+                    }
+
+                    p.noFill();
+                    // Draw line from base to swayed tip
+                    p.line(0, 0, bladeTipX, bladeTipY);
+
+                    // OPTIONAL: Add slight curve using quadraticVertex (cheaper than curveVertex)
+                    // let midX = sin(topSwayAngle * 0.5) * currentHeight * 0.5;
+                    // let midY = -cos(topSwayAngle * 0.5) * currentHeight * 0.5;
+                    // p.beginShape();
+                    // p.vertex(0, 0);
+                    // p.quadraticVertex(midX * 0.8, midY, bladeTipX, bladeTipY); // Control point slightly less swayed than midpoint
+                    // p.endShape();
+
+
+                    p.pop(); // Restore from blade rotation
+                }
+
+
+                 // Draw harvestable indicator (Simplified - small circle at base)
+                 if (plant.isHarvestable) {
+                     p.fill(255, 255, 0, 200); // Yellow
+                     p.noStroke();
+                     p.ellipse(0, -5, 4 + growthRatio * 2, 4 + growthRatio * 2); // Circle near base
+                 }
+
+                p.pop(); // Restore from base translation/rotation
+            }
+
+
+            // --- Mouse Interaction (Mostly unchanged, uses simplified planting preview) ---
+             p.mousePressed = () => {
+                 if (p.mouseX < 0 || p.mouseX > canvasWidth || p.mouseY < 0 || p.mouseY > canvasHeight) return;
+
+                 let clickedOnPlant = false;
+                 // Check harvest (simple bounding box near base is efficient)
+                 for (let i = gameState.plants.length - 1; i >= 0; i--) {
+                     const plant = gameState.plants[i];
+                     if (plant.isHarvestable) {
+                         const clickMargin = 15 + plant.currentHeight * 0.1; // Margin increases slightly with height
+                         if (p.dist(p.mouseX, p.mouseY, plant.x, substrateLevel - plant.currentHeight / 2) < clickMargin) { // Check distance from mid-point
+                             harvestPlant(plant.id);
+                             clickedOnPlant = true;
+                             break;
+                         }
+                     }
+                 }
+
+                 // Planting logic
+                 if (!clickedOnPlant && gameState.selectedSeedId !== null) {
+                     if (p.mouseY > 0 && p.mouseY < substrateLevel) {
+                         if (p.keyIsDown(p.SHIFT)) {
+                             const MAX_BULK_PLANT = 5; let plantedCount = 0;
+                             for (let i = 0; i < MAX_BULK_PLANT; i++) {
+                                 let offsetX = (i > 0) ? p.random(-20, 20) : 0;
+                                 let targetX = p.constrain(p.mouseX + offsetX, 5, canvasWidth - 5);
+                                 let success = executePlanting(targetX, substrateLevel, true);
+                                 if (success) plantedCount++; else break;
+                             }
+                             if (plantedCount > 0) {
+                                  // Find type of one of the planted seeds to show name
+                                  const lastPlanted = gameState.plants[gameState.plants.length -1];
+                                  const seedType = lastPlanted ? SEED_TYPES[lastPlanted.type] : null;
+                                  showNotification(`${seedType?.name || '種'} を ${plantedCount} 個まとめて植えました！`, 'success');
+                             }
+                          } else { executePlanting(p.mouseX, substrateLevel, false); }
+                     } else if (p.mouseY >= substrateLevel) { showNotification("水底より上に植えてください", "info"); }
+                 }
+             };
+        };
+
+
+        // --- Initialization ---
+        function initGame() {
+            console.log("Initializing Aquarium (Lite)...");
+            // Start with fewer seeds
+            gameState.inventorySeeds.push({ id: gameState.nextSeedInstanceId++, type: 'aqua_sprout' });
+            gameState.inventorySeeds.push({ id: gameState.nextSeedInstanceId++, type: 'waving_grass' });
+
+            // Initial UI updates
+            updateMoneyDisplay(); // This calls shop update
+            updateTotalHarvestsDisplay(); // This calls perk button update
+            updateTotalSynthesesDisplay();
+            updateInventoryDisplay(); // This calls synth slot update
+            updatePerksDisplay();
+            checkSynthesizeButton(); // Final check
+
+            p5Instance = new p5(sketch);
+
+            // Use requestAnimationFrame for the game loop for smoother integration with rendering
+            let lastTimestamp = 0;
+            function gameLoopRAF(timestamp) {
+                 if (!lastTimestamp) lastTimestamp = timestamp;
+                 const deltaTime = Math.min(50, timestamp - lastTimestamp); // Limit delta time
+                 lastTimestamp = timestamp;
+
+                 // Call game logic update function (passing deltaTime if needed, though current logic doesn't use it directly)
+                 gameLoop(); // Our existing gameLoop handles time internally using Date.now()
+
+                 window.requestAnimationFrame(gameLoopRAF); // Schedule next frame
+            }
+            window.requestAnimationFrame(gameLoopRAF); // Start the loop
+
+            console.log("Aquarium (Lite) Ready.");
+            showNotification("ようこそ！種を選んで水底をクリックし、水草を育てましょう！", "info", 5000);
+        }
+
+        // --- Start the game ---
+        window.onload = initGame;
+
+    </script>
+
+</body>
+</html>

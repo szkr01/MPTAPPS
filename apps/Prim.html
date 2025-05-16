@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prim's Algorithm Visualization (プリム法可視化)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Custom CSS for specific elements if needed */
+        canvas {
+            background-color: #f8f9fa; /* Light background for the canvas */
+            cursor: crosshair;
+            touch-action: none; /* Prevent default touch actions like scrolling */
+        }
+        .node {
+            transition: all 0.3s ease;
+        }
+        .node-default { fill: #6b7280; stroke: #374151; } /* Gray */
+        .node-start { fill: #10b981; stroke: #059669; } /* Emerald */
+        .node-visited { fill: #3b82f6; stroke: #1d4ed8; } /* Blue */
+        .node-considering { fill: #f59e0b; stroke: #d97706; } /* Amber */
+
+        .edge {
+            transition: all 0.3s ease;
+            stroke-width: 2;
+        }
+        .edge-default { stroke: #9ca3af; } /* Gray */
+        .edge-fringe { stroke: #f59e0b; stroke-dasharray: 5, 5; stroke-width: 2.5;} /* Amber dashed */
+        .edge-mst { stroke: #3b82f6; stroke-width: 4; } /* Blue bold */
+        .edge-considering { stroke: #ef4444; stroke-width: 3; } /* Red bold */
+
+        .weight-text {
+            font-size: 12px;
+            fill: #1f2937; /* Dark Gray */
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none; /* Make text non-interactive */
+            font-weight: 500;
+        }
+        /* Tooltip styling */
+        .tooltip {
+          position: absolute;
+          background-color: rgba(0, 0, 0, 0.75);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          white-space: nowrap;
+          z-index: 100;
+          pointer-events: none; /* Important for mouse events on canvas */
+          opacity: 0;
+          transition: opacity 0.2s ease-in-out;
+        }
+        .tooltip.show {
+          opacity: 1;
+        }
+        /* Highlight effect for interactive elements */
+        .interactive-hover:hover {
+            filter: brightness(1.1);
+            transform: scale(1.05);
+        }
+        /* Styling for control panel elements */
+        .control-button {
+             @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+        }
+        .control-button-primary {
+             @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
+        }
+         .control-button-secondary {
+             @apply bg-gray-600 hover:bg-gray-700 focus:ring-gray-500;
+        }
+        .control-button-danger {
+             @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
+        }
+         .control-button-success {
+             @apply bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500;
+        }
+        .control-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .control-input {
+            @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+        }
+        .control-group {
+            @apply mb-4 p-3 border border-gray-200 rounded-md bg-gray-50;
+        }
+        #status-panel {
+            min-height: 80px; /* Ensure space for messages */
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div class="flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-2xl font-bold"><i class="fas fa-project-diagram mr-2"></i>Prim's Algorithm Visualization (プリム法)</h1>
+                 <a href="https://github.com/your-repo" target="_blank" class="text-white hover:text-blue-200 transition duration-300" title="View on GitHub">
+                    <i class="fab fa-github fa-lg"></i>
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto p-4 flex flex-col lg:flex-row gap-4">
+
+            <!-- Control Panel -->
+            <aside class="lg:w-1/3 xl:w-1/4 bg-white p-4 rounded-lg shadow-lg order-2 lg:order-1 h-fit lg:sticky lg:top-20">
+                <h2 class="text-xl font-semibold mb-4 pb-2 border-b border-gray-300 text-gray-800">Controls (操作)</h2>
+
+                <div class="control-group">
+                    <label class="control-label">Interaction Mode (操作モード):</label>
+                    <select id="interactionMode" class="control-input mb-2">
+                        <option value="addNode">Add Node (ノード追加)</option>
+                        <option value="addEdge">Add Edge (辺追加)</option>
+                        <option value="selectStart">Select Start Node (開始ノード選択)</option>
+                        <option value="none">View Only (閲覧のみ)</option>
+                    </select>
+                     <p class="text-xs text-gray-500 italic">Select a mode, then interact with the canvas.</p>
+                </div>
+
+                 <div class="control-group">
+                    <h3 class="text-md font-semibold mb-2 text-gray-700">Algorithm Control (アルゴリズム制御)</h3>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <button id="startButton" class="control-button control-button-success"><i class="fas fa-play mr-1"></i>Start</button>
+                        <button id="pauseButton" class="control-button control-button-primary" disabled><i class="fas fa-pause mr-1"></i>Pause</button>
+                        <button id="stepButton" class="control-button control-button-primary"><i class="fas fa-step-forward mr-1"></i>Step</button>
+                        <button id="resetButton" class="control-button control-button-secondary"><i class="fas fa-undo mr-1"></i>Reset</button>
+                    </div>
+                     <label for="speedSlider" class="control-label">Animation Speed (速度):</label>
+                     <input type="range" id="speedSlider" min="50" max="2000" value="500" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                     <div class="flex justify-between text-xs text-gray-500">
+                         <span>Fast (速い)</span>
+                         <span>Slow (遅い)</span>
+                     </div>
+                </div>
+
+                <div class="control-group">
+                    <h3 class="text-md font-semibold mb-2 text-gray-700">Graph Management (グラフ管理)</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="randomGraphButton" class="control-button control-button-primary"><i class="fas fa-random mr-1"></i>Random</button>
+                        <button id="clearAllButton" class="control-button control-button-danger"><i class="fas fa-trash-alt mr-1"></i>Clear All</button>
+                    </div>
+                     <div class="mt-2 flex items-center gap-2">
+                         <label for="randomNodesInput" class="text-sm text-gray-600">Nodes:</label>
+                         <input type="number" id="randomNodesInput" value="8" min="3" max="50" class="control-input w-16 text-center">
+                         <label for="randomEdgesInput" class="text-sm text-gray-600">Edges (Approx):</label>
+                         <input type="number" id="randomEdgesInput" value="12" min="1" max="100" class="control-input w-16 text-center">
+                    </div>
+                </div>
+
+                 <div class="control-group bg-blue-50 border-blue-200">
+                    <h3 class="text-md font-semibold mb-2 text-blue-800">Status (状態)</h3>
+                    <div id="status-panel" class="text-sm text-blue-700 space-y-1">
+                        <p id="statusMessage">Status: Ready. Draw a graph or generate one.</p>
+                        <p>Selected Start Node: <span id="startNodeDisplay" class="font-medium">None</span></p>
+                        <p>Total MST Weight: <span id="totalWeightDisplay" class="font-medium">0</span></p>
+                    </div>
+                </div>
+
+                 <div class="control-group bg-gray-50">
+                     <h3 class="text-md font-semibold mb-2 text-gray-700">Legend (凡例)</h3>
+                     <ul class="text-xs space-y-1">
+                         <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-gray-500 border border-gray-700 mr-2"></span> Default Node</li>
+                         <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 border border-blue-800 mr-2"></span> Visited Node (MST)</li>
+                         <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-500 border border-emerald-700 mr-2"></span> Start Node</li>
+                         <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-500 border border-amber-700 mr-2"></span> Node being considered</li>
+                         <li class="flex items-center"><span class="w-full h-0.5 bg-gray-400 mr-2 my-1"></span> Default Edge</li>
+                         <li class="flex items-center"><span class="w-full h-1 bg-blue-500 mr-2 my-1"></span> MST Edge</li>
+                         <li class="flex items-center">
+                            <svg height="8" width="100%" class="mr-2"><line x1="0" y1="4" x2="100%" y2="4" style="stroke:#f59e0b; stroke-width:2; stroke-dasharray: 4,4;" /></svg>
+                             Fringe Edge
+                         </li>
+                         <li class="flex items-center"><span class="w-full h-1 bg-red-500 mr-2 my-1"></span> Min Edge Considered</li>
+                     </ul>
+                 </div>
+
+            </aside>
+
+            <!-- Visualization Area -->
+            <div id="visualization" class="flex-grow bg-white p-2 rounded-lg shadow-lg relative order-1 lg:order-2" style="min-height: 500px;">
+                <canvas id="graphCanvas" class="w-full h-full block rounded"></canvas>
+                <div id="tooltip" class="tooltip">Tooltip</div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-white text-center p-3 text-sm mt-auto">
+            Created with HTML, TailwindCSS, and JavaScript. Prim's Algorithm Visualization.
+        </footer>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const visualizationDiv = document.getElementById('visualization');
+        const tooltip = document.getElementById('tooltip');
+
+        // Control elements
+        const interactionModeSelect = document.getElementById('interactionMode');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const stepButton = document.getElementById('stepButton');
+        const resetButton = document.getElementById('resetButton');
+        const speedSlider = document.getElementById('speedSlider');
+        const randomGraphButton = document.getElementById('randomGraphButton');
+        const clearAllButton = document.getElementById('clearAllButton');
+        const randomNodesInput = document.getElementById('randomNodesInput');
+        const randomEdgesInput = document.getElementById('randomEdgesInput');
+
+        // Status display elements
+        const statusMessage = document.getElementById('statusMessage');
+        const startNodeDisplay = document.getElementById('startNodeDisplay');
+        const totalWeightDisplay = document.getElementById('totalWeightDisplay');
+
+        // Graph data
+        let nodes = [];
+        let edges = [];
+        let nextNodeId = 0;
+        let nextEdgeId = 0;
+
+        // Interaction state
+        let interactionMode = 'addNode'; // 'addNode', 'addEdge', 'selectStart', 'none'
+        let edgeFirstNode = null;
+        let draggingNode = null;
+        let dragOffsetX, dragOffsetY;
+        let selectedStartNodeId = null;
+
+        // Prim's algorithm state
+        let primState = {
+            running: false,
+            paused: false,
+            intervalId: null,
+            visitedNodes: new Set(),
+            mstEdges: new Set(),
+            fringeEdges: [], // Stores edge objects { u, v, weight, id }
+            currentNodeId: null, // Node just added to MST
+            consideringEdge: null, // Min edge currently being evaluated
+            totalWeight: 0,
+            stepByStep: false,
+            initialized: false,
+            completed: false,
+        };
+
+        // Constants
+        const NODE_RADIUS = 15;
+        const NODE_HIT_RADIUS_SQ = (NODE_RADIUS * 1.5) ** 2; // Larger radius for easier clicking, squared for efficiency
+        const EDGE_HIT_WIDTH = 10; // For clicking/hovering edges
+
+        // --- Canvas Setup and Drawing ---
+
+        function resizeCanvas() {
+            const containerWidth = visualizationDiv.clientWidth - 4; // account for padding
+            const containerHeight = visualizationDiv.clientHeight - 4;
+            // Use devicePixelRatio for sharper rendering on high-DPI screens
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = containerWidth * dpr;
+            canvas.height = containerHeight * dpr;
+            canvas.style.width = `${containerWidth}px`;
+            canvas.style.height = `${containerHeight}px`;
+            ctx.scale(dpr, dpr); // Scale context to match DPR
+            redrawCanvas();
+        }
+
+        function drawNode(node) {
+            let nodeClass = 'node-default';
+            if (node.id === selectedStartNodeId) {
+                nodeClass = 'node-start';
+            } else if (primState.visitedNodes.has(node.id)) {
+                nodeClass = 'node-visited';
+            } else if (primState.consideringEdge && (node.id === primState.consideringEdge.u || node.id === primState.consideringEdge.v) && !primState.visitedNodes.has(node.id)) {
+                 nodeClass = 'node-considering';
+            }
+
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, NODE_RADIUS, 0, Math.PI * 2);
+
+            // Simulate Tailwind colors using hex codes
+            const styles = {
+                'node-default': { fill: '#6b7280', stroke: '#374151' }, // Gray
+                'node-start': { fill: '#10b981', stroke: '#059669' },   // Emerald
+                'node-visited': { fill: '#3b82f6', stroke: '#1d4ed8' }, // Blue
+                'node-considering': { fill: '#f59e0b', stroke: '#d97706' }, // Amber
+            };
+
+            ctx.fillStyle = styles[nodeClass].fill;
+            ctx.strokeStyle = styles[nodeClass].stroke;
+            ctx.lineWidth = 2;
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw node ID
+            ctx.fillStyle = '#ffffff'; // White text inside node
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(node.id, node.x, node.y);
+        }
+
+        function drawEdge(edge) {
+            const uNode = nodes.find(n => n.id === edge.u);
+            const vNode = nodes.find(n => n.id === edge.v);
+            if (!uNode || !vNode) return; // Should not happen
+
+            let edgeClass = 'edge-default';
+            let lineWidth = 2;
+            let lineDash = [];
+
+            if (primState.mstEdges.has(edge.id)) {
+                edgeClass = 'edge-mst';
+                lineWidth = 4;
+            } else if (primState.fringeEdges.some(fEdge => fEdge.id === edge.id)) {
+                edgeClass = 'edge-fringe';
+                lineWidth = 2.5;
+                lineDash = [5, 5];
+            }
+
+             if (primState.consideringEdge && primState.consideringEdge.id === edge.id) {
+                edgeClass = 'edge-considering';
+                lineWidth = 3;
+                lineDash = []; // Solid red line when considering
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(uNode.x, uNode.y);
+            ctx.lineTo(vNode.x, vNode.y);
+
+            const styles = {
+                'edge-default': '#9ca3af', // Gray
+                'edge-fringe': '#f59e0b',  // Amber
+                'edge-mst': '#3b82f6',     // Blue
+                'edge-considering': '#ef4444', // Red
+            };
+
+            ctx.strokeStyle = styles[edgeClass];
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash(lineDash);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset line dash
+
+            // Draw edge weight
+            const midX = (uNode.x + vNode.x) / 2;
+            const midY = (uNode.y + vNode.y) / 2;
+            // Add slight offset to avoid drawing text directly on the line
+            const angle = Math.atan2(vNode.y - uNode.y, vNode.x - uNode.x);
+            const offsetX = Math.sin(angle) * 10;
+            const offsetY = -Math.cos(angle) * 10;
+
+            ctx.fillStyle = '#1f2937'; // Dark Gray
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            // Small background rectangle for readability
+            const textWidth = ctx.measureText(edge.weight).width;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // Semi-transparent white background
+            ctx.fillRect(midX + offsetX - textWidth / 2 - 2, midY + offsetY - 10, textWidth + 4, 12);
+            ctx.fillStyle = '#1f2937'; // Dark Gray text
+            ctx.fillText(edge.weight, midX + offsetX, midY + offsetY);
+
+        }
+
+        function redrawCanvas() {
+            // Clear canvas (considering DPR)
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to clear properly
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.restore(); // Restore previous transform (includes DPR scaling)
+
+            // Draw edges first (so nodes are on top)
+            edges.forEach(edge => drawEdge(edge));
+
+            // Draw nodes
+            nodes.forEach(node => drawNode(node));
+        }
+
+        // --- Interaction Logic ---
+
+        function getNodeAt(x, y) {
+            for (let i = nodes.length - 1; i >= 0; i--) { // Iterate backwards so top node is selected first
+                const node = nodes[i];
+                const dx = x - node.x;
+                const dy = y - node.y;
+                if (dx * dx + dy * dy < NODE_HIT_RADIUS_SQ) {
+                    return node;
+                }
+            }
+            return null;
+        }
+
+        function handleCanvasMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const clickedNode = getNodeAt(x, y);
+
+            if (interactionMode === 'addNode') {
+                if (!clickedNode) { // Only add if not clicking on existing node
+                    const newNode = { id: nextNodeId++, x: x, y: y };
+                    nodes.push(newNode);
+                    resetAlgorithmState(); // Graph changed, reset algorithm
+                    updateStatus("Added Node " + newNode.id);
+                    redrawCanvas();
+                } else {
+                     // Start dragging if clicking on a node in addNode mode (or maybe 'none' mode)
+                     draggingNode = clickedNode;
+                     dragOffsetX = x - clickedNode.x;
+                     dragOffsetY = y - clickedNode.y;
+                }
+            } else if (interactionMode === 'addEdge') {
+                if (clickedNode) {
+                    if (edgeFirstNode === null) {
+                        edgeFirstNode = clickedNode;
+                        // Optional: Visual feedback for selected first node
+                        updateStatus(`Selected first node ${edgeFirstNode.id}. Click another node to create edge.`);
+                        // Simple highlight - maybe add a temporary circle? For now, just text status.
+                    } else if (clickedNode.id !== edgeFirstNode.id) {
+                        // Check if edge already exists
+                        const edgeExists = edges.some(edge =>
+                            (edge.u === edgeFirstNode.id && edge.v === clickedNode.id) ||
+                            (edge.u === clickedNode.id && edge.v === edgeFirstNode.id)
+                        );
+
+                        if (!edgeExists) {
+                            let weight = prompt(`Enter weight for edge between node ${edgeFirstNode.id} and ${clickedNode.id}:`, "1");
+                            weight = parseInt(weight);
+                            if (!isNaN(weight) && weight > 0) {
+                                const newEdge = { id: nextEdgeId++, u: edgeFirstNode.id, v: clickedNode.id, weight: weight };
+                                edges.push(newEdge);
+                                resetAlgorithmState(); // Graph changed
+                                updateStatus(`Added edge ${edgeFirstNode.id}-${clickedNode.id} with weight ${weight}.`);
+                                redrawCanvas();
+                            } else {
+                                updateStatus("Invalid weight. Edge not added.");
+                            }
+                        } else {
+                            updateStatus("Edge already exists.");
+                        }
+                        edgeFirstNode = null; // Reset selection
+                    } else {
+                        // Clicked the same node again, deselect
+                         updateStatus("Deselected first node.");
+                        edgeFirstNode = null;
+                    }
+                } else {
+                    // Clicked empty space, cancel edge creation
+                     updateStatus("Edge creation cancelled.");
+                    edgeFirstNode = null;
+                }
+            } else if (interactionMode === 'selectStart') {
+                if (clickedNode) {
+                    selectedStartNodeId = clickedNode.id;
+                    startNodeDisplay.textContent = selectedStartNodeId;
+                    resetAlgorithmState(false); // Keep graph, reset Prim's state
+                    updateStatus(`Selected node ${selectedStartNodeId} as start node.`);
+                    redrawCanvas();
+                } else {
+                    updateStatus("Click on a node to select it as the starting point.");
+                }
+            } else if (interactionMode === 'none') {
+                 if (clickedNode) {
+                     // Allow dragging in 'none' mode too
+                     draggingNode = clickedNode;
+                     dragOffsetX = x - clickedNode.x;
+                     dragOffsetY = y - clickedNode.y;
+                 }
+            }
+        }
+
+        function handleCanvasMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Dragging logic
+             if (draggingNode) {
+                 draggingNode.x = x - dragOffsetX;
+                 draggingNode.y = y - dragOffsetY;
+                 // Keep node within canvas bounds (optional)
+                 draggingNode.x = Math.max(NODE_RADIUS, Math.min(canvas.clientWidth / (window.devicePixelRatio || 1) - NODE_RADIUS, draggingNode.x));
+                 draggingNode.y = Math.max(NODE_RADIUS, Math.min(canvas.clientHeight / (window.devicePixelRatio || 1) - NODE_RADIUS, draggingNode.y));
+                 redrawCanvas();
+                 // Don't show tooltip while dragging
+                 hideTooltip();
+                 return; // Prevent tooltip logic while dragging
+             }
+
+
+            // Tooltip logic
+            const hoveredNode = getNodeAt(x, y);
+            if (hoveredNode) {
+                showTooltip(`Node ${hoveredNode.id}`, e.clientX, e.clientY);
+            } else {
+                 // Check for hovered edge (more complex)
+                 let hoveredEdge = null;
+                 let minDistSq = EDGE_HIT_WIDTH * EDGE_HIT_WIDTH; // Check within ~10px of the line
+
+                 for (const edge of edges) {
+                     const uNode = nodes.find(n => n.id === edge.u);
+                     const vNode = nodes.find(n => n.id === edge.v);
+                     if (!uNode || !vNode) continue;
+
+                     const distSq = pointLineSegmentDistanceSq(x, y, uNode.x, uNode.y, vNode.x, vNode.y);
+
+                     if (distSq < minDistSq) {
+                         minDistSq = distSq;
+                         hoveredEdge = edge;
+                     }
+                 }
+
+                 if (hoveredEdge) {
+                     showTooltip(`Edge ${hoveredEdge.u}-${hoveredEdge.v}, Weight: ${hoveredEdge.weight}`, e.clientX, e.clientY);
+                 } else {
+                    hideTooltip();
+                 }
+            }
+        }
+
+        function handleCanvasMouseUp(e) {
+             if (draggingNode) {
+                 draggingNode = null; // Stop dragging
+                 resetAlgorithmState(); // Node moved, may affect distances/visuals if running
+                 redrawCanvas(); // Final draw after drag
+             }
+        }
+        function handleCanvasMouseLeave(e) {
+            if (draggingNode) {
+                // If mouse leaves while dragging, stop the drag
+                draggingNode = null;
+                resetAlgorithmState();
+                redrawCanvas();
+            }
+            hideTooltip();
+        }
+
+         // Helper function: Squared distance from point (px, py) to line segment (x1, y1) - (x2, y2)
+         function pointLineSegmentDistanceSq(px, py, x1, y1, x2, y2) {
+             const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+             if (l2 === 0) return (px - x1) * (px - x1) + (py - y1) * (py - y1); // Segment is a point
+             let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+             t = Math.max(0, Math.min(1, t)); // Clamp t to [0, 1]
+             const closestX = x1 + t * (x2 - x1);
+             const closestY = y1 + t * (y2 - y1);
+             const dx = px - closestX;
+             const dy = py - closestY;
+             return dx * dx + dy * dy;
+         }
+
+        // Tooltip functions
+        function showTooltip(text, x, y) {
+            tooltip.textContent = text;
+            // Position tooltip slightly offset from cursor
+            tooltip.style.left = `${x + 15}px`;
+            tooltip.style.top = `${y + 10}px`;
+             // Check bounds to prevent tooltip going off-screen
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const bodyRect = document.body.getBoundingClientRect();
+            if (tooltipRect.right > bodyRect.right) {
+                 tooltip.style.left = `${x - tooltipRect.width - 15}px`;
+            }
+             if (tooltipRect.bottom > bodyRect.bottom) {
+                tooltip.style.top = `${y - tooltipRect.height - 10}px`;
+            }
+
+            tooltip.classList.add('show');
+        }
+
+        function hideTooltip() {
+            tooltip.classList.remove('show');
+        }
+
+        // --- Prim's Algorithm Logic ---
+
+        function initializePrim() {
+            if (selectedStartNodeId === null) {
+                updateStatus("Error: Please select a starting node first.", true);
+                return false;
+            }
+            if (nodes.length === 0) {
+                 updateStatus("Error: Graph is empty.", true);
+                 return false;
+            }
+
+            resetAlgorithmState(false); // Reset previous run state but keep graph/start node
+            primState.initialized = true;
+            primState.completed = false;
+            primState.running = false;
+            primState.paused = false;
+
+            primState.visitedNodes.add(selectedStartNodeId);
+            primState.currentNodeId = selectedStartNodeId;
+            updateFringe(selectedStartNodeId);
+
+            updateStatus(`Initialized Prim's Algorithm. Start node: ${selectedStartNodeId}.`);
+            updateUIState();
+            redrawCanvas();
+            return true;
+        }
+
+        function updateFringe(newNodeId) {
+            // Add edges connected to newNodeId that lead to unvisited nodes
+            edges.forEach(edge => {
+                let neighborId = -1;
+                if (edge.u === newNodeId && !primState.visitedNodes.has(edge.v)) {
+                    neighborId = edge.v;
+                } else if (edge.v === newNodeId && !primState.visitedNodes.has(edge.u)) {
+                    neighborId = edge.u;
+                }
+
+                if (neighborId !== -1) {
+                    // Add to fringe if not already there (or update if a shorter path is found - Prim usually doesn't need update, just add)
+                    // Simple Prim adds all valid edges, picks minimum later.
+                     const existingFringeEdge = primState.fringeEdges.find(f => f.id === edge.id);
+                     if (!existingFringeEdge) {
+                          primState.fringeEdges.push(edge);
+                     }
+                }
+            });
+
+             // Crucially, remove edges from fringe that now connect two visited nodes
+             primState.fringeEdges = primState.fringeEdges.filter(edge =>
+                !(primState.visitedNodes.has(edge.u) && primState.visitedNodes.has(edge.v))
+             );
+
+            // Sort fringe by weight (simple implementation, Heap is better)
+            primState.fringeEdges.sort((a, b) => a.weight - b.weight);
+        }
+
+        function primStep() {
+            if (!primState.initialized || primState.completed) {
+                stopAlgorithm("Algorithm not initialized or already completed.");
+                return false; // Indicate step wasn't performed
+            }
+             if (primState.visitedNodes.size === nodes.length) {
+                primState.completed = true;
+                stopAlgorithm(`MST Found! All ${nodes.length} nodes visited. Total Weight: ${primState.totalWeight}.`);
+                primState.consideringEdge = null;
+                redrawCanvas();
+                return false;
+            }
+
+            // Find the minimum weight edge in the fringe connecting a visited node to an unvisited one
+             let minEdge = null;
+             let minEdgeIndex = -1;
+
+            for(let i = 0; i < primState.fringeEdges.length; i++) {
+                const edge = primState.fringeEdges[i];
+                const uVisited = primState.visitedNodes.has(edge.u);
+                const vVisited = primState.visitedNodes.has(edge.v);
+
+                 // Valid edge connects one visited and one unvisited node
+                if (uVisited !== vVisited) {
+                     // Since fringe is sorted, the first valid edge is the minimum
+                     minEdge = edge;
+                     minEdgeIndex = i;
+                     break;
+                 }
+                 // If edge connects two visited nodes (should have been removed by updateFringe, but double-check)
+                 // else if (uVisited && vVisited) {
+                     // This edge is obsolete, mark for removal? (updateFringe should handle this)
+                 // }
+            }
+
+
+             primState.consideringEdge = minEdge; // Highlight the edge being considered
+
+
+            if (minEdge) {
+                updateStatus(`Considering edge ${minEdge.u}-${minEdge.v} (Weight: ${minEdge.weight})...`);
+                redrawCanvas(); // Show highlighted edge
+
+                // Pause briefly to show the considered edge before adding it
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        // Add the edge and node to the MST
+                        primState.mstEdges.add(minEdge.id);
+                        primState.totalWeight += minEdge.weight;
+                        totalWeightDisplay.textContent = primState.totalWeight;
+
+                        const newNodeId = primState.visitedNodes.has(minEdge.u) ? minEdge.v : minEdge.u;
+                        primState.visitedNodes.add(newNodeId);
+                        primState.currentNodeId = newNodeId;
+
+                         // Remove the chosen edge from the fringe array
+                         primState.fringeEdges.splice(minEdgeIndex, 1);
+
+                        // Update the fringe with edges from the newly added node
+                        updateFringe(newNodeId);
+
+                        primState.consideringEdge = null; // Stop highlighting as 'considering'
+
+                        updateStatus(`Added edge ${minEdge.u}-${minEdge.v} (Weight: ${minEdge.weight}) to MST. Added node ${newNodeId}.`);
+                        redrawCanvas(); // Show updated MST/visited nodes
+
+                         if (primState.visitedNodes.size === nodes.length) {
+                            primState.completed = true;
+                            stopAlgorithm(`MST Found! All ${nodes.length} nodes visited. Total Weight: ${primState.totalWeight}.`);
+                         }
+
+                        resolve(true); // Indicate step was successful
+
+                    }, primState.stepByStep ? 0 : getAnimationDelay() / 2); // Half delay for consideration highlight
+                });
+
+            } else {
+                // No more valid edges in the fringe, but not all nodes visited? (Graph might be disconnected)
+                 primState.completed = true;
+                 stopAlgorithm(`Could not reach all nodes. Algorithm terminated. MST weight (so far): ${primState.totalWeight}.`, true);
+                 primState.consideringEdge = null;
+                 redrawCanvas();
+                 return Promise.resolve(false); // Indicate algorithm finished (or failed)
+            }
+        }
+
+        function runAlgorithm() {
+            if (primState.running && !primState.paused) return; // Already running
+            if (primState.completed) {
+                 updateStatus("Algorithm already completed. Reset to run again.");
+                 return;
+            }
+
+            if (!primState.initialized && !initializePrim()) {
+                return; // Initialization failed
+            }
+
+            primState.running = true;
+            primState.paused = false;
+            primState.stepByStep = false;
+            updateUIState();
+            updateStatus("Running Prim's Algorithm...");
+
+            function algorithmLoop() {
+                const stepPromise = primStep(); // primStep returns a promise now
+                 if (stepPromise === false) { // Step function determined completion/failure synchronously
+                      return;
+                 }
+
+                stepPromise.then(success => {
+                     if (success && primState.running && !primState.paused && !primState.completed) {
+                        primState.intervalId = setTimeout(algorithmLoop, getAnimationDelay());
+                    } else if (!success || primState.completed) {
+                         // Algorithm finished or failed during the async part
+                         stopAlgorithm(); // Ensure state is cleaned up if needed
+                    }
+                 });
+            }
+
+            algorithmLoop(); // Start the loop
+        }
+
+        function pauseAlgorithm() {
+             if (primState.running && !primState.paused) {
+                primState.paused = true;
+                clearTimeout(primState.intervalId);
+                primState.intervalId = null;
+                updateStatus("Algorithm Paused.");
+                updateUIState();
+            }
+        }
+
+        function resumeAlgorithm() {
+             if (primState.running && primState.paused) {
+                 primState.paused = false;
+                 updateUIState();
+                 updateStatus("Resuming Algorithm...");
+                 // Restart the loop
+                 runAlgorithm(); // This will handle the continuation
+             }
+        }
+
+         function stepAlgorithm() {
+             if (primState.completed) {
+                 updateStatus("Algorithm already completed. Reset to run again.");
+                 return;
+             }
+             if (!primState.initialized && !initializePrim()) {
+                 return; // Initialization failed
+             }
+
+             primState.running = true; // Mark as running for UI state
+             primState.paused = true; // Stay paused after the step
+             primState.stepByStep = true; // Ensure immediate execution within primStep promise
+             updateUIState();
+             primStep(); // Execute one step
+         }
+
+
+        function stopAlgorithm(message, isError = false) {
+            clearTimeout(primState.intervalId);
+            primState.intervalId = null;
+            // Don't reset running/paused immediately if completed naturally,
+            // only if stopped forcefully or error occurred.
+            // Let completed state handle UI.
+            if (message) {
+                updateStatus(message, isError);
+            }
+            // Keep running = true, paused = true if completed? Or set running = false?
+            // Let's set running = false on completion/error stop.
+            if (primState.completed || isError) {
+                 primState.running = false;
+                 primState.paused = false;
+            }
+            updateUIState();
+        }
+
+        function resetAlgorithmState(fullReset = true) {
+            stopAlgorithm(); // Clear any running timeouts
+
+            primState.running = false;
+            primState.paused = false;
+            primState.intervalId = null;
+            primState.visitedNodes.clear();
+            primState.mstEdges.clear();
+            primState.fringeEdges = [];
+            primState.currentNodeId = null;
+            primState.consideringEdge = null;
+            primState.totalWeight = 0;
+            primState.initialized = false;
+            primState.completed = false;
+            primState.stepByStep = false;
+
+            if (fullReset) {
+                selectedStartNodeId = null;
+                startNodeDisplay.textContent = "None";
+                 updateStatus("Algorithm reset. Graph cleared.");
+            } else {
+                 if (selectedStartNodeId !== null) {
+                    updateStatus(`Algorithm reset. Start node: ${selectedStartNodeId}. Ready to run.`);
+                 } else {
+                     updateStatus("Algorithm reset. Select a start node.");
+                 }
+            }
+
+            totalWeightDisplay.textContent = "0";
+            updateUIState();
+            redrawCanvas(); // Redraw with default node/edge states
+        }
+
+        function clearAll() {
+            nodes = [];
+            edges = [];
+            nextNodeId = 0;
+            nextEdgeId = 0;
+            edgeFirstNode = null;
+            draggingNode = null;
+            resetAlgorithmState(true); // Full reset including start node etc.
+            // Status already updated in resetAlgorithmState
+        }
+
+        function getAnimationDelay() {
+            // Slider value is inverted: smaller value means faster (less delay)
+            return 2050 - parseInt(speedSlider.value); // Map 50-2000 to 2000ms-50ms delay
+        }
+
+        // --- UI Updates ---
+
+        function updateStatus(message, isError = false) {
+            statusMessage.textContent = `Status: ${message}`;
+            statusMessage.className = isError ? 'text-sm text-red-700 font-semibold' : 'text-sm text-blue-700';
+        }
+
+        function updateUIState() {
+             // Interaction mode affects button availability somewhat
+             const graphExists = nodes.length > 0;
+             const canStart = graphExists && selectedStartNodeId !== null;
+
+            // Algorithm buttons
+            startButton.disabled = !canStart || (primState.running && !primState.paused) || primState.completed;
+            pauseButton.disabled = !primState.running || primState.paused || primState.completed;
+             stepButton.disabled = !canStart || (primState.running && !primState.paused) || primState.completed; // Can step if paused or not started
+             resetButton.disabled = !primState.initialized && primState.mstEdges.size === 0; // Allow reset if algorithm has started or MST exists
+
+
+             // Button text/icon toggle for Pause/Resume
+             if (primState.running && primState.paused) {
+                 pauseButton.innerHTML = '<i class="fas fa-play mr-1"></i>Resume';
+                 pauseButton.onclick = resumeAlgorithm;
+                 pauseButton.classList.remove('control-button-primary');
+                 pauseButton.classList.add('control-button-success');
+             } else {
+                 pauseButton.innerHTML = '<i class="fas fa-pause mr-1"></i>Pause';
+                 pauseButton.onclick = pauseAlgorithm;
+                 pauseButton.classList.remove('control-button-success');
+                 pauseButton.classList.add('control-button-primary');
+             }
+
+             // Disable graph modification during run? Maybe allow for dynamic changes?
+             // For simplicity, let's disable graph interaction while running/paused.
+             const algorithmActive = primState.running || primState.completed;
+             interactionModeSelect.disabled = algorithmActive;
+             randomGraphButton.disabled = algorithmActive;
+             clearAllButton.disabled = algorithmActive;
+             randomNodesInput.disabled = algorithmActive;
+             randomEdgesInput.disabled = algorithmActive;
+
+             // Change interaction mode automatically if algorithm starts/resets
+             if (algorithmActive && interactionMode !== 'none') {
+                 // interactionModeSelect.value = 'none';
+                 // interactionMode = 'none';
+                 // updateStatus("Interaction disabled during algorithm execution.");
+                 // Temporarily disable canvas interaction directly? More robust.
+                 canvas.style.cursor = 'not-allowed';
+             } else {
+                 canvas.style.cursor = interactionMode === 'addNode' ? 'crosshair' : 'default';
+                 // Re-enable if needed? Check interactionModeSelect.disabled status
+             }
+
+
+        }
+
+        // --- Graph Generation ---
+
+        function generateRandomGraph() {
+            clearAll(); // Start fresh
+
+            const numNodes = parseInt(randomNodesInput.value);
+            const numEdges = parseInt(randomEdgesInput.value);
+            const padding = NODE_RADIUS * 2;
+            const canvasWidth = canvas.clientWidth / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.clientHeight / (window.devicePixelRatio || 1);
+
+
+            if (numNodes <= 0 || !canvasWidth || !canvasHeight) return;
+
+            // Generate nodes at random positions
+            for (let i = 0; i < numNodes; i++) {
+                nodes.push({
+                    id: nextNodeId++,
+                    x: Math.random() * (canvasWidth - 2 * padding) + padding,
+                    y: Math.random() * (canvasHeight - 2 * padding) + padding
+                });
+            }
+
+            // Generate edges - ensure connectivity (simple approach: connect in a cycle first)
+            if (numNodes > 1) {
+                 for (let i = 0; i < numNodes; i++) {
+                     const u = nodes[i].id;
+                     const v = nodes[(i + 1) % numNodes].id; // Connect to next node in cycle
+                      const weight = Math.floor(Math.random() * 20) + 1; // Weight 1-20
+                     edges.push({ id: nextEdgeId++, u, v, weight });
+                 }
+            }
+
+
+             // Add remaining random edges until target count (or max possible)
+             const maxPossibleEdges = numNodes * (numNodes - 1) / 2;
+             let addedEdges = numNodes > 1 ? numNodes : 0;
+             const targetEdges = Math.min(numEdges, maxPossibleEdges); // Don't exceed max possible
+
+             let attempts = 0; // Prevent infinite loop for dense graphs
+             while (addedEdges < targetEdges && attempts < numNodes * numNodes * 2) {
+                 const uIndex = Math.floor(Math.random() * numNodes);
+                 const vIndex = Math.floor(Math.random() * numNodes);
+                 const uId = nodes[uIndex].id;
+                 const vId = nodes[vIndex].id;
+
+                 if (uId !== vId) {
+                     const edgeExists = edges.some(edge =>
+                         (edge.u === uId && edge.v === vId) || (edge.u === vId && edge.v === uId)
+                     );
+                     if (!edgeExists) {
+                          const weight = Math.floor(Math.random() * 20) + 1;
+                          edges.push({ id: nextEdgeId++, u: uId, v: vId, weight });
+                          addedEdges++;
+                     }
+                 }
+                 attempts++;
+             }
+
+
+            // Optionally select a random start node
+             if(nodes.length > 0) {
+                 selectedStartNodeId = nodes[0].id; // Default to first node
+                 startNodeDisplay.textContent = selectedStartNodeId;
+             }
+
+            resetAlgorithmState(false); // Reset algorithm, keep graph and start node
+            updateStatus(`Generated random graph with ${nodes.length} nodes and ${edges.length} edges.`);
+            redrawCanvas();
+        }
+
+
+        // --- Event Listeners ---
+        interactionModeSelect.addEventListener('change', (e) => {
+            interactionMode = e.target.value;
+            edgeFirstNode = null; // Reset edge selection when mode changes
+             canvas.style.cursor = interactionMode === 'addNode' ? 'crosshair' : 'default';
+            updateStatus(`Mode changed to: ${interactionModeSelect.options[interactionModeSelect.selectedIndex].text}`);
+        });
+
+        canvas.addEventListener('mousedown', handleCanvasMouseDown);
+        canvas.addEventListener('mousemove', handleCanvasMouseMove);
+        canvas.addEventListener('mouseup', handleCanvasMouseUp);
+        canvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+
+        // Touch events for basic mobile/tablet support
+        canvas.addEventListener('touchstart', (e) => {
+             if (e.touches.length === 1) {
+                 e.preventDefault(); // Prevent scrolling/zooming while drawing
+                 handleCanvasMouseDown(e.touches[0]); // Simulate mouse event
+             }
+        });
+        canvas.addEventListener('touchmove', (e) => {
+             if (e.touches.length === 1) {
+                 e.preventDefault();
+                 handleCanvasMouseMove(e.touches[0]);
+             }
+        });
+        canvas.addEventListener('touchend', (e) => {
+             // Use changedTouches as touches is empty on touchend
+             if (e.changedTouches.length === 1) {
+                // e.preventDefault(); // Not always needed/desirable on touchend
+                 handleCanvasMouseUp(e.changedTouches[0]);
+             }
+        });
+         canvas.addEventListener('touchcancel', (e) => {
+              handleCanvasMouseLeave(e); // Treat cancel like mouse leave
+         });
+
+        startButton.addEventListener('click', runAlgorithm);
+        pauseButton.addEventListener('click', () => { // Initial state is pause
+             if (primState.running && primState.paused) {
+                 resumeAlgorithm();
+             } else {
+                 pauseAlgorithm();
+             }
+        });
+        stepButton.addEventListener('click', stepAlgorithm);
+        resetButton.addEventListener('click', () => resetAlgorithmState(false)); // Reset only algorithm
+        clearAllButton.addEventListener('click', clearAll);
+        randomGraphButton.addEventListener('click', generateRandomGraph);
+        speedSlider.addEventListener('input', () => {
+            // If running automatically, clear interval and restart with new speed
+            if (primState.running && !primState.paused && !primState.stepByStep && primState.intervalId) {
+                clearTimeout(primState.intervalId);
+                 // Rerun the loop immediately after delay change
+                 primState.intervalId = setTimeout(() => { runAlgorithm(); }, 0);
+            }
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Initial Setup ---
+        resizeCanvas(); // Initial sizing
+        updateUIState(); // Set initial button states
+        updateStatus("Ready. Draw a graph or generate one.");
+        interactionMode = interactionModeSelect.value; // Sync initial mode
+
+    </script>
+
+</body>
+</html>
