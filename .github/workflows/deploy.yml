@@ -55,20 +55,40 @@ jobs:
               title=$(grep -oi '<title>.*</title>' "$file" | sed -e 's/<title>//I' -e 's/<\/title>//I' || echo "$filename_no_ext")
               # description 変数を使用
               description="「${title}」を起動します。"
+              # --- アイコン/色 設定 (コメントアウトから抽出、またはファイル名に基づく) ---
               icon_class="$DEFAULT_ICON"
               color="$DEFAULT_COLOR"
-              # --- アイコン/色 設定 ---
-              if [[ "$filename_no_ext" == *"calc"* ]]; then icon_class="fas fa-calculator"; color="indigo";
-              elif [[ "$filename_no_ext" == *"note"* ]]; then icon_class="fas fa-sticky-note"; color="yellow";
-              elif [[ "$filename_no_ext" == *"weather"* ]]; then icon_class="fas fa-cloud-sun-rain"; color="blue";
-              elif [[ "$filename_no_ext" == *"game"* ]]; then icon_class="fas fa-gamepad"; color="red";
-              elif [[ "$filename_no_ext" == *"convert"* ]]; then icon_class="fas fa-exchange-alt"; color="green";
-              # --- 新しいアプリのルールを追加 ---
-              elif [[ "$filename_no_ext" == *"collage"* ]]; then icon_class="fas fa-cubes"; color="purple";
-              elif [[ "$filename_no_ext" == *"cropper"* ]]; then icon_class="fas fa-crop-alt"; color="teal";
-              # -----------------------------
-              # 他のルールを追加する場合はここに追加
+
+              # ファイル内容からアイコンと色を抽出
+              FILE_CONTENT=$(cat "$file")
+              COMMENT_ICON=$(echo "$FILE_CONTENT" | grep -oP '<!-- Icon: \K[^ ]+' | head -n 1)
+              COMMENT_COLOR=$(echo "$FILE_CONTENT" | grep -oP '<!-- Color: \K[^ ]+' | head -n 1)
+
+              if [ -n "$COMMENT_ICON" ]; then
+                icon_class="$COMMENT_ICON"
+                echo "  Extracted icon from comment: $icon_class"
+              elif [[ "$filename_no_ext" == *"calc"* ]]; then icon_class="fas fa-calculator";
+              elif [[ "$filename_no_ext" == *"note"* ]]; then icon_class="fas fa-sticky-note";
+              elif [[ "$filename_no_ext" == *"weather"* ]]; then icon_class="fas fa-cloud-sun-rain";
+              elif [[ "$filename_no_ext" == *"game"* ]]; then icon_class="fas fa-gamepad";
+              elif [[ "$filename_no_ext" == *"convert"* ]]; then icon_class="fas fa-exchange-alt";
+              elif [[ "$filename_no_ext" == *"collage"* ]]; then icon_class="fas fa-cubes";
+              elif [[ "$filename_no_ext" == *"cropper"* ]]; then icon_class="fas fa-crop-alt";
               fi
+
+              if [ -n "$COMMENT_COLOR" ]; then
+                color="$COMMENT_COLOR"
+                echo "  Extracted color from comment: $color"
+              elif [[ "$filename_no_ext" == *"calc"* ]]; then color="indigo";
+              elif [[ "$filename_no_ext" == *"note"* ]]; then color="yellow";
+              elif [[ "$filename_no_ext" == *"weather"* ]]; then color="blue";
+              elif [[ "$filename_no_ext" == *"game"* ]]; then color="red";
+              elif [[ "$filename_no_ext" == *"convert"* ]]; then color="green";
+              elif [[ "$filename_no_ext" == *"collage"* ]]; then color="purple";
+              elif [[ "$filename_no_ext" == *"cropper"* ]]; then color="teal";
+              fi
+              # ----------------------------------------------------------
+
               icon_color="text-${color}-500"
               badge_bg="bg-${color}-100"
               badge_text="text-${color}-700"
